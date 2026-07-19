@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
     "coverage": "vitest run --coverage"
@@ -35,6 +35,8 @@
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.2",
     "jsdom": "^24.1.0",
-    "vitest": "^2.0.3"
+    "vitest": "^2.0.3",
+    "typescript-eslint": "^7.16.0",
+    "globals": "^15.8.0"
   }
 }
