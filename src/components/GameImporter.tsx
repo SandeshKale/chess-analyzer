@@ -1,29 +1,67 @@
 import { useState, useCallback } from 'react';
 import { useChessStore } from '@/hooks/useChessStore';
 import { parsePgn } from '@/utils/chessHelpers';
+import { getPlayerArchives, getMonthlyGames, type ChessComGame } from '@/services/chesscomApi';
+
+type Tab = 'pgn' | 'chesscom';
 
 export function GameImporter() {
+  const [activeTab, setActiveTab] = useState<Tab>('pgn');
   const [pgn, setPgn] = useState('');
+  const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [archives, setArchives] = useState<string[]>([]);
+  const [games, setGames] = useState<ChessComGame[]>([]);
   const setGame = useChessStore((s) => s.setGame);
 
-  const handleLoad = useCallback(() => {
+  const handleLoadPgn = useCallback(() => {
     try {
       setError('');
-      if (!pgn.trim()) {
-        setError('Please enter a PGN');
-        return;
-      }
+      if (!pgn.trim()) { setError('Please enter a PGN'); return; }
       const game = parsePgn(pgn);
-      if (game.moves.length === 0) {
-        setError('No valid moves found in PGN');
-        return;
-      }
+      if (game.moves.length === 0) { setError('No valid moves found in PGN'); return; }
       setGame(game);
     } catch (err) {
       setError('Failed to parse PGN: ' + (err as Error).message);
     }
   }, [pgn, setGame]);
+
+  const handleFetchArchives = useCallback(async () => {
+    if (!username.trim()) { setError('Enter a Chess.com username'); return; }
+    setError(''); setLoading(true); setArchives([]); setGames([]);
+    try {
+      const list = await getPlayerArchives(username.trim());
+      setArchives(list);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [username]);
+
+  const handleFetchGames = useCallback(async (archiveUrl: string) => {
+    setError(''); setLoading(true); setGames([]);
+    try {
+      const list = await getMonthlyGames(archiveUrl);
+      setGames(list);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleSelectGame = useCallback((game: ChessComGame) => {
+    try {
+      setError('');
+      const parsed = parsePgn(game.pgn);
+      if (parsed.moves.length === 0) { setError('Game has no valid moves'); return; }
+      setGame(parsed);
+    } catch (err) {
+      setError('Failed to parse game PGN: ' + (err as Error).message);
+    }
+  }, [setGame]);
 
   const handleSample = useCallback(() => {
     const sample = `[Event "FIDE World Championship Match"]
@@ -51,59 +89,197 @@ export function GameImporter() {
   }, []);
 
   return (
-    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-      <h2>Import Chess.com Game</h2>
-      <p>Paste your PGN below or load the sample game.</p>
-      <textarea
-        value={pgn}
-        onChange={(e) => setPgn(e.target.value)}
-        placeholder="Paste PGN here..."
-        style={{
-          width: '100%',
-          height: '200px',
-          fontFamily: 'monospace',
-          fontSize: '13px',
-          padding: '12px',
-          borderRadius: '8px',
-          border: '1px solid #333',
-          background: '#1e1e1e',
-          color: '#e0e0e0',
-          resize: 'vertical',
-        }}
-      />
-      {error && <div style={{ color: '#e34f4f', marginTop: '8px', fontSize: '14px' }}>{error}</div>}
-      <div style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
-        <button
-          onClick={handleLoad}
-          style={{
-            padding: '10px 24px',
-            background: '#81b64c',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 600,
-            fontSize: '14px',
-          }}
-        >
-          Load Game
-        </button>
-        <button
-          onClick={handleSample}
-          style={{
-            padding: '10px 24px',
-            background: '#3d3d3d',
-            color: '#e0e0e0',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 600,
-            fontSize: '14px',
-          }}
-        >
-          Load Sample
-        </button>
+    <div style={{ padding: '20px', maxWidth: '720px', margin: '0 auto' }}>
+      <h2 style={{ marginBottom: '4px' }}>Import Game</h2>
+      <p style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>
+        Paste a PGN or fetch from Chess.com
+      </p>
+
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '20px', background: '#1e1e1e', borderRadius: '8px', padding: '4px' }}>
+        <TabButton active={activeTab === 'pgn'} onClick={() => setActiveTab('pgn')} label="Paste PGN" />
+        <TabButton active={activeTab === 'chesscom'} onClick={() => setActiveTab('chesscom')} label="Chess.com" />
       </div>
+
+      {activeTab === 'pgn' && (
+        <div>
+          <textarea
+            value={pgn}
+            onChange={(e) => setPgn(e.target.value)}
+            placeholder="Paste PGN here..."
+            style={textareaStyle}
+          />
+          <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+            <button onClick={handleLoadPgn} style={primaryBtn}>Load Game</button>
+            <button onClick={handleSample} style={secondaryBtn}>Load Sample</button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'chesscom' && (
+        <div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Chess.com username (e.g., MagnusCarlsen)"
+              onKeyDown={(e) => e.key === 'Enter' && handleFetchArchives()}
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <button onClick={handleFetchArchives} disabled={loading} style={primaryBtn}>
+              {loading ? 'Loading...' : 'Fetch Archives'}
+            </button>
+          </div>
+
+          {archives.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>Select a month:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {archives.map((url) => {
+                  const parts = url.split('/');
+                  const label = `${parts[parts.length - 2]}-${parts[parts.length - 1]}`;
+                  return (
+                    <button
+                      key={url}
+                      onClick={() => handleFetchGames(url)}
+                      disabled={loading}
+                      style={archiveBtn}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {games.length > 0 && (
+            <div>
+              <div style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>
+                {games.length} games found — click to analyze:
+              </div>
+              <div style={{ maxHeight: '320px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {games.map((game) => (
+                  <button
+                    key={game.uuid}
+                    onClick={() => handleSelectGame(game)}
+                    style={gameCardBtn}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600 }}>
+                        {game.white.username} ({game.white.rating}) vs {game.black.username} ({game.black.rating})
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#888', textTransform: 'capitalize' }}>
+                        {game.time_class}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                      {new Date(game.end_time * 1000).toLocaleDateString()} · {game.time_control}s · {game.rated ? 'Rated' : 'Casual'}
+                      {game.accuracies && (
+                        <span style={{ marginLeft: '8px' }}>
+                          Acc: {game.accuracies.white}% / {game.accuracies.black}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <div style={{ color: '#e34f4f', marginTop: '12px', fontSize: '14px' }}>{error}</div>}
     </div>
   );
 }
+
+function TabButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: '8px 16px',
+        borderRadius: '6px',
+        border: 'none',
+        background: active ? '#2a2a2a' : 'transparent',
+        color: active ? '#e0e0e0' : '#888',
+        cursor: 'pointer',
+        fontWeight: 600,
+        fontSize: '14px',
+        transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+const textareaStyle: React.CSSProperties = {
+  width: '100%',
+  height: '200px',
+  fontFamily: 'monospace',
+  fontSize: '13px',
+  padding: '12px',
+  borderRadius: '8px',
+  border: '1px solid #333',
+  background: '#1e1e1e',
+  color: '#e0e0e0',
+  resize: 'vertical',
+  outline: 'none',
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: '10px 14px',
+  borderRadius: '6px',
+  border: '1px solid #333',
+  background: '#1e1e1e',
+  color: '#e0e0e0',
+  fontSize: '14px',
+  outline: 'none',
+};
+
+const primaryBtn: React.CSSProperties = {
+  padding: '10px 24px',
+  background: '#81b64c',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: '14px',
+};
+
+const secondaryBtn: React.CSSProperties = {
+  padding: '10px 24px',
+  background: '#3d3d3d',
+  color: '#e0e0e0',
+  border: 'none',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: '14px',
+};
+
+const archiveBtn: React.CSSProperties = {
+  padding: '6px 12px',
+  background: '#2a2a2a',
+  color: '#e0e0e0',
+  border: '1px solid #444',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontSize: '13px',
+};
+
+const gameCardBtn: React.CSSProperties = {
+  padding: '12px 16px',
+  background: '#1e1e1e',
+  color: '#e0e0e0',
+  border: '1px solid #333',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontSize: '14px',
+  transition: 'border-color 0.15s',
+};
