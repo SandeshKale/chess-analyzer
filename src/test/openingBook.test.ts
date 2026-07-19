@@ -3,7 +3,7 @@ import { getOpeningByFen, getOpeningByMoves } from '@/services/openingBook'
 
 describe('getOpeningByFen', () => {
   it('returns opening info for valid FEN', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         opening: { eco: 'C00', name: 'French Defense' },
@@ -13,7 +13,7 @@ describe('getOpeningByFen', () => {
         draws: 50,
         black: 50,
       }),
-    })
+    }))
 
     const opening = await getOpeningByFen('rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2')
     expect(opening).not.toBeNull()
@@ -22,17 +22,17 @@ describe('getOpeningByFen', () => {
   })
 
   it('returns null when no opening found', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ fen: '...', moves: [] }),
-    })
+    }))
 
     const opening = await getOpeningByFen('some-fen')
     expect(opening).toBeNull()
   })
 
   it('returns null on fetch error', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
     const opening = await getOpeningByFen('fen')
     expect(opening).toBeNull()
   })
@@ -40,7 +40,7 @@ describe('getOpeningByFen', () => {
 
 describe('getOpeningByMoves', () => {
   it('returns opening for move sequence', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         opening: { eco: 'B20', name: 'Sicilian Defense' },
@@ -50,7 +50,7 @@ describe('getOpeningByMoves', () => {
         draws: 50,
         black: 50,
       }),
-    })
+    }))
 
     const opening = await getOpeningByMoves('e2e4,c7c5')
     expect(opening).not.toBeNull()
