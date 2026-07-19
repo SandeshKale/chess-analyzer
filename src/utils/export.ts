@@ -75,7 +75,7 @@ export function generateAnnotatedPgn(
   return lines.join('\n');
 }
 
-function formatEvalForPgn(score: number): string {
+export function formatEvalForPgn(score: number): string {
   if (Math.abs(score) >= 90000) {
     const mateIn = score > 0 ? Math.round(100000 - score) : Math.round(-100000 - score);
     return `#${mateIn}`;
@@ -84,7 +84,7 @@ function formatEvalForPgn(score: number): string {
   return val >= 0 ? `+${val.toFixed(2)}` : val.toFixed(2);
 }
 
-function formatClassificationComment(c: string): string {
+export function formatClassificationComment(c: string): string {
   const map: Record<string, string> = {
     brilliant: 'Brilliant!',
     great: 'Great move!',

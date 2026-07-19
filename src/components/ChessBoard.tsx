@@ -8,7 +8,6 @@ export function ChessBoard() {
   const showArrows = useChessStore((s) => s.showArrows);
   const { lines } = useStockfish();
 
-  // Build custom arrows from engine analysis
   const customArrows = showArrows && lines.length > 0 
     ? lines.slice(0, 1).map((line) => {
         if (line.pv.length === 0) return null;
@@ -18,8 +17,8 @@ export function ChessBoard() {
           bestMove.substring(0, 2),
           bestMove.substring(2, 4),
           'rgb(155, 199, 75)',
-        ] as unknown as [string, string, string];
-      }).filter((a): a is [string, string, string] => a !== null) as unknown as [string, string, string][]
+        ];
+      }).filter((a): a is [string, string, string] => a !== null)
     : [];
 
   return (
@@ -38,7 +37,7 @@ export function ChessBoard() {
       <Chessboard
         position={currentFen}
         boardOrientation={boardOrientation}
-        customArrows={customArrows}
+        customArrows={customArrows as any}
         areArrowsAllowed={false}
         animationDuration={200}
         customBoardStyle={{
