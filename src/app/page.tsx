@@ -2,19 +2,19 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
-import { DateRangeBar, type RangeMode } from "@/components/DateRangeBar";
-import { GameList } from "@/components/GameList";
-import { AnalysisBoard } from "@/components/AnalysisBoard";
-import { EvalGraph } from "@/components/EvalGraph";
-import { MoveList } from "@/components/MoveList";
-import { SummaryBar } from "@/components/SummaryBar";
-import { CommentaryPanel } from "@/components/CommentaryPanel";
+import { BottomTabBar, type TabKey } from "@/components/BottomTabBar";
+import { HomeTab } from "@/components/tabs/HomeTab";
+import { GamesTab } from "@/components/tabs/GamesTab";
+import { AnalysisTab } from "@/components/tabs/AnalysisTab";
+import type { RangeMode } from "@/components/DateRangeBar";
 import { parseChessComGame, START_FEN } from "@/lib/pgn";
 import { StockfishEngine } from "@/lib/engine";
 import { analyzeGame } from "@/lib/analyzeGame";
 import type { ChessComGame, ParsedGame, GameAnalysis } from "@/lib/types";
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabKey>("home");
+
   const [username, setUsername] = useState("Sandesh_kale");
   const [mode, setMode] = useState<RangeMode>("week");
   const [dateStr, setDateStr] = useState(() => format(new Date(), "yyyy-MM-dd"));
@@ -101,8 +101,11 @@ export default function Home() {
     [depth]
   );
 
+  // Selecting a game from Search jumps straight to Analysis — that's the
+  // whole point of picking one, and it mirrors what a native app would do.
   const selectGame = (g: ParsedGame) => {
     setSelectedGame(g);
+    setActiveTab("analysis");
     runAnalysis(g);
   };
 
@@ -146,106 +149,59 @@ export default function Home() {
     : selectedGame?.fensAfterMove.slice(-1)[0] ?? START_FEN;
 
   return (
-    <main className="min-h-screen bg-graphite text-ivory px-4 py-8 sm:px-8 max-w-5xl mx-auto">
-      <header className="mb-8">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-brass mb-2">
-          Self-hosted · unlimited · Stockfish 18
-        </p>
-        <h1 className="font-display text-3xl sm:text-4xl text-ivory">Game Review</h1>
-        <p className="text-ivorydim mt-1">
-          Pull your chess.com games, run them through a full local engine, and get plain-English
-          coaching on what actually happened.
-        </p>
-      </header>
+    <main className="min-h-screen bg-graphite text-ivory">
+      <div className="px-4 py-8 sm:px-8 max-w-3xl mx-auto pb-24">
+        {activeTab === "home" && (
+          <HomeTab
+            username={username}
+            lastGame={selectedGame}
+            lastAnalysis={analysis}
+            onGoToGames={() => setActiveTab("games")}
+            onGoToAnalysis={() => setActiveTab("analysis")}
+          />
+        )}
 
-      <section className="mb-8">
-        <DateRangeBar
-          username={username}
-          onUsernameChange={setUsername}
-          mode={mode}
-          onModeChange={setMode}
-          date={dateStr}
-          onDateChange={setDateStr}
-          onFetch={fetchGames}
-          loading={loadingGames}
-        />
-        {gamesError && <p className="text-oxblood text-sm mt-3">{gamesError}</p>}
-      </section>
+        {activeTab === "games" && (
+          <GamesTab
+            username={username}
+            onUsernameChange={setUsername}
+            mode={mode}
+            onModeChange={setMode}
+            date={dateStr}
+            onDateChange={setDateStr}
+            onFetch={fetchGames}
+            loading={loadingGames}
+            gamesError={gamesError}
+            games={games}
+            selectedGameId={selectedGame?.id ?? null}
+            onSelectGame={selectGame}
+          />
+        )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8">
-        <section>
-          <h2 className="font-display text-lg mb-3">{games.length > 0 ? `${games.length} games` : "Games"}</h2>
-          <GameList games={games} selectedId={selectedGame?.id ?? null} onSelect={selectGame} />
-        </section>
-
-        <section>
-          {!selectedGame && (
-            <div className="h-full flex items-center justify-center text-ivorydim/50 italic border border-dashed border-brassdim/20 rounded-lg py-16">
-              Select a game to run the engine on it.
-            </div>
-          )}
-
-          {selectedGame && (
-            <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <p className="font-mono text-sm text-ivorydim">
-                    {username} ({selectedGame.playedAs}) vs {selectedGame.opponent}
-                  </p>
-                  <p className="text-xs text-ivorydim/60">{selectedGame.opening ?? "Unknown opening"}</p>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-mono">
-                  <label className="text-ivorydim/70">Depth</label>
-                  <select
-                    value={depth}
-                    onChange={(e) => setDepth(parseInt(e.target.value, 10))}
-                    className="bg-graphite2 border border-brassdim/30 rounded px-2 py-1"
-                  >
-                    <option value={12}>12 · quick</option>
-                    <option value={16}>16 · standard</option>
-                    <option value={20}>20 · deep</option>
-                    <option value={24}>24 · very deep</option>
-                  </select>
-                  <button
-                    onClick={() => runAnalysis(selectedGame)}
-                    disabled={analyzing}
-                    className="px-3 py-1 rounded border border-brass text-brass disabled:opacity-40"
-                  >
-                    {analyzing ? `Analyzing ${progress.done}/${progress.total}` : "Re-run"}
-                  </button>
-                </div>
-              </div>
-
-              {analyzing && !analysis && (
-                <div className="w-full h-2 rounded bg-graphite2 overflow-hidden">
-                  <div
-                    className="h-full bg-brass transition-all"
-                    style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
-                  />
-                </div>
-              )}
-
-              <AnalysisBoard fen={boardFen} orientation={selectedGame.playedAs} move={activeMove} />
-
-              {analysis && (
-                <>
-                  <EvalGraph moves={analysis.moves} activeIndex={activeIndex} onSelect={setActiveIndex} />
-                  <SummaryBar analysis={analysis} />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <MoveList moves={analysis.moves} activeIndex={activeIndex} onSelect={setActiveIndex} />
-                    <CommentaryPanel
-                      commentary={commentary}
-                      loading={commentaryLoading}
-                      error={commentaryError}
-                      onGenerate={generateCommentary}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </section>
+        {activeTab === "analysis" && (
+          <AnalysisTab
+            username={username}
+            selectedGame={selectedGame}
+            depth={depth}
+            onDepthChange={setDepth}
+            analyzing={analyzing}
+            progress={progress}
+            onRerun={() => selectedGame && runAnalysis(selectedGame)}
+            analysis={analysis}
+            activeIndex={activeIndex}
+            onSelectMove={setActiveIndex}
+            activeMove={activeMove}
+            boardFen={boardFen}
+            commentary={commentary}
+            commentaryLoading={commentaryLoading}
+            commentaryError={commentaryError}
+            onGenerateCommentary={generateCommentary}
+            onGoToGames={() => setActiveTab("games")}
+          />
+        )}
       </div>
+
+      <BottomTabBar active={activeTab} onChange={setActiveTab} />
     </main>
   );
 }
