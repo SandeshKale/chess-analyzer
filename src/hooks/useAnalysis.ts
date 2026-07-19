@@ -3,7 +3,7 @@ import { Chess } from 'chess.js';
 import { useChessStore } from './useChessStore';
 import { useStockfish } from './useStockfish';
 import { classifyMove } from '@/utils/evaluation';
-import type { MoveAnalysis, AnalysisLine } from '@/types';
+import type { MoveAnalysis } from '@/types';
 
 export function useAnalysis() {
   const currentGame = useChessStore((s) => s.currentGame);

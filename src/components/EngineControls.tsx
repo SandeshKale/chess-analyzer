@@ -100,7 +100,7 @@ export function EngineControls() {
       </div>
 
       <button
-        onClick={isFullAnalyzing ? cancelAnalysis : runFullAnalysis}
+        onClick={() => isFullAnalyzing ? cancelAnalysis() : runFullAnalysis()}
         disabled={!isReady || !currentGame}
         style={{
           width: '100%',

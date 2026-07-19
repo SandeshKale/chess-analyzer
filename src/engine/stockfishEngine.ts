@@ -22,7 +22,7 @@ export class StockfishEngine {
   private messageQueue: string[] = [];
   private pending: PendingRequest | null = null;
   private onInfoCallback: ((line: AnalysisLine) => void) | null = null;
-  private currentMultiPv = 1;
+  private _currentMultiPv = 1;
 
   async init(): Promise<void> {
     if (this.worker) return;
@@ -125,7 +125,7 @@ export class StockfishEngine {
   }
 
   analyzePosition(fen: string, depth: number = 20, multipv: number = 3): void {
-    this.currentMultiPv = multipv;
+    this._currentMultiPv = multipv;
     this.send('stop');
     this.send(`setoption name MultiPV value ${multipv}`);
     this.send(`position fen ${fen}`);

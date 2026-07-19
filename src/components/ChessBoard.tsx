@@ -15,11 +15,11 @@ export function ChessBoard() {
         const bestMove = line.pv[0];
         if (bestMove.length < 4) return null;
         return [
-          bestMove.substring(0, 2) as string,
-          bestMove.substring(2, 4) as string,
+          bestMove.substring(0, 2),
+          bestMove.substring(2, 4),
           'rgb(155, 199, 75)',
-        ];
-      }).filter(Boolean) as [string, string, string][]
+        ] as unknown as [string, string, string];
+      }).filter((a): a is [string, string, string] => a !== null) as unknown as [string, string, string][]
     : [];
 
   return (

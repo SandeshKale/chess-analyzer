@@ -1,10 +1,11 @@
-import { useChessGame } from '@/hooks/useChessGame';
 import { useChessStore } from '@/hooks/useChessStore';
+import { useChessGame } from '@/hooks/useChessGame';
 import { CLASSIFICATION_COLORS } from '@/utils/evaluation';
 
 export function MoveList() {
-  const { currentGame, currentMoveIndex, goToMove, hasGame } = useChessGame();
+  const currentGame = useChessStore((s) => s.currentGame);
   const analysis = useChessStore((s) => s.analysis);
+  const { currentMoveIndex, goToMove, hasGame } = useChessGame();
 
   if (!hasGame || !currentGame) {
     return (
@@ -80,7 +81,7 @@ export function MoveList() {
 
 function MoveButton({ 
   san, 
-  index, 
+  index: _index, 
   isActive, 
   classification, 
   onClick 

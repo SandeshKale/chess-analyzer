@@ -41,7 +41,6 @@ export function formatEvaluation(score: number): string {
 export function evaluationToPercentage(score: number): number {
   // Convert centipawns to a 0-100 scale (50 = equal)
   // Using a sigmoid-like function for natural scaling
-  const normalized = score / 400;
   const percentage = 50 + 50 * (2 / (1 + Math.exp(-0.003 * score)) - 1);
   return Math.max(0, Math.min(100, percentage));
 }
