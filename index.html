@@ -1,13 +1,1600 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chess.com Games Analyzer</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Analyzer Pro</title>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface-hover: #252525;
+      --surface-active: #2d2d2d;
+      --border: #333;
+      --text: #e0e0e0;
+      --text-muted: #888;
+      --accent: #7cb342;
+      --accent-hover: #8bc34a;
+      --danger: #e53935;
+      --danger-hover: #f44336;
+      --info: #1e88e5;
+      --info-hover: #2196f3;
+      --warning: #fdd835;
+      --blunder: #ff4444;
+      --mistake: #ff8844;
+      --inaccuracy: #ffcc44;
+      --good: #88cc88;
+      --excellent: #44aa44;
+      --best: #4488ff;
+      --brilliant: #ff88ff;
+      --book: #888888;
+      --square-light: #b58863;
+      --square-dark: #6d4c41;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-info { background: var(--info); color: #fff; }
+    .btn-info:hover { background: var(--info-hover); }
+    .btn-secondary { background: var(--surface-active); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--surface-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    .btn-icon { padding: 8px; }
+    .pgn-panel {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+    .pgn-panel.open { max-height: 400px; padding: 16px 20px; }
+    .pgn-panel textarea {
+      width: 100%;
+      min-height: 120px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text);
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+    }
+    .pgn-panel textarea:focus { outline: none; border-color: var(--accent); }
+    .pgn-panel-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; padding: 12px; }
+    }
+    .board-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .board-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+      aspect-ratio: 1;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 8px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    .board-container { position: relative; width: 100%; height: 100%; }
+    .board-svg { width: 100%; height: 100%; border-radius: 4px; overflow: hidden; }
+    .board-square { cursor: pointer; transition: opacity 0.15s; }
+    .board-square:hover { opacity: 0.9; }
+    .piece {
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: central;
+      font-size: 56px;
+      font-family: "Segoe UI Symbol", "Apple Color Emoji", sans-serif;
+    }
+    .piece-white { fill: #f0d9b5; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5)); }
+    .piece-black { fill: #111; filter: drop-shadow(1px 1px 2px rgba(255,255,255,0.15)); }
+    .highlight-lastmove { fill: rgba(255, 255, 0, 0.25); }
+    .highlight-check { fill: rgba(255, 0, 0, 0.35); }
+    .coord-text {
+      font-size: 10px;
+      font-weight: 600;
+      fill: rgba(255,255,255,0.5);
+      pointer-events: none;
+    }
+    .arrow-line {
+      stroke-width: 6;
+      stroke-linecap: round;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .arrow-head {
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .eval-bar-wrapper {
+      position: absolute;
+      left: -24px;
+      top: 8px;
+      bottom: 8px;
+      width: 16px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .eval-bar-white {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #ddd;
+      transition: height 0.3s ease;
+    }
+    .eval-bar-text {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      font-size: 9px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+    @media (max-width: 900px) {
+      .eval-bar-wrapper { left: -20px; width: 14px; }
+    }
+    .board-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .move-slider {
+      flex: 1;
+      min-width: 200px;
+      max-width: 400px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: var(--surface-active);
+      border-radius: 3px;
+      outline: none;
+    }
+    .move-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .move-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 12px 16px;
+      background: var(--surface-active);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-body { padding: 12px; }
+    .move-list {
+      max-height: 280px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.85rem;
+      display: grid;
+      grid-template-columns: 36px 1fr 1fr;
+      gap: 2px 8px;
+    }
+    .move-list::-webkit-scrollbar { width: 6px; }
+    .move-list::-webkit-scrollbar-track { background: transparent; }
+    .move-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .move-number {
+      color: var(--text-muted);
+      text-align: right;
+      padding-right: 4px;
+    }
+    .move-item {
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.1s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .move-item:hover { background: var(--surface-hover); }
+    .move-item.active {
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+    }
+    .move-item.blunder { color: var(--blunder); }
+    .move-item.mistake { color: var(--mistake); }
+    .move-item.inaccuracy { color: var(--inaccuracy); }
+    .move-item.good { color: var(--good); }
+    .move-item.excellent { color: var(--excellent); }
+    .move-item.best { color: var(--best); }
+    .move-item.brilliant { color: var(--brilliant); }
+    .engine-config {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .config-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .config-group label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .config-group select, .config-group input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+    .engine-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .engine-status {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      min-height: 20px;
+    }
+    .engine-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .engine-line {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.8rem;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .engine-line:hover { background: var(--surface-hover); }
+    .line-eval {
+      min-width: 50px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .line-pv {
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .llm-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .llm-input-group select {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+    .llm-response {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .llm-response::-webkit-scrollbar { width: 6px; }
+    .llm-response::-webkit-scrollbar-track { background: transparent; }
+    .llm-response::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .llm-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .analysis-report { display: flex; flex-direction: column; gap: 8px; }
+    .report-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: var(--bg);
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .report-stat-label { color: var(--text-muted); }
+    .report-stat-value { font-weight: 600; }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      color: var(--text-muted);
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+    }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      font-size: 0.85rem;
+      animation: slideIn 0.3s ease;
+      max-width: 320px;
+    }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.success { border-left: 3px solid var(--accent); }
+    .toast.info { border-left: 3px solid var(--info); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 12px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body { padding: 20px; overflow-y: auto; }
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    @media (max-width: 600px) {
+      .header h1 { font-size: 1rem; }
+      .board-wrapper { padding: 4px; }
+      .piece { font-size: 36px; }
+      .move-list { font-size: 0.75rem; }
+      .panel-body { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="#7cb342"><path d="M19 22H5v-2h14v2M17 2c0 1.26-.52 2.4-1.35 3.23C16.08 5.46 16.53 6 16.9 6.7c.38.7.6 1.5.6 2.3h-2c0-1.1-.45-2.1-1.17-2.83C14.6 5.45 14.1 5.25 13.58 5.08 13.06 4.9 12.53 4.8 12 4.8s-1.06.1-1.58.27c-.52.18-1.02.38-1.75 1.1C7.95 7.9 7.5 8.9 7.5 10h-2c0-.8.22-1.6.6-2.3.37-.7.82-1.24 1.25-1.47C6.52 4.4 6 3.26 6 2h2c0 .55.1 1.05.27 1.5.18.45.42.85.73 1.17.32.32.72.56 1.17.73.45.18.95.27 1.5.27s1.05-.1 1.5-.27c.45-.18.85-.42 1.17-.73.32-.32.56-.72.73-1.17C15.9 3.05 16 2.55 16 2h1m-4 18v-2h2v2h-2m-4 0v-2h2v2H9m4-4v-2h2v2h-2m-4 0v-2h2v2H9m4-4v-2h2v2h-2m-4 0v-2h2v2H9"/></svg>
+      Chess Analyzer Pro
+    </h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" id="btn-toggle-pgn">
+        <span>Import PGN</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btn-load-sample">
+        <span>Load Sample</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="pgn-panel" id="pgn-panel">
+    <textarea id="pgn-input" placeholder="Paste PGN here...&#10;&#10;Example:&#10;[Event "Casual Game"]&#10;[Site "Chess.com"]&#10;[Date "2024.01.15"]&#10;[White "Player1"]&#10;[Black "Player2"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ..."></textarea>
+    <div class="pgn-panel-actions">
+      <button class="btn btn-primary" id="btn-load-pgn">Load Game</button>
+      <button class="btn btn-secondary" id="btn-clear-pgn">Clear</button>
+    </div>
+  </div>
+
+  <main class="main">
+    <section class="board-section">
+      <div class="board-wrapper">
+        <div class="eval-bar-wrapper" id="eval-bar">
+          <div class="eval-bar-white" id="eval-bar-white" style="height:50%"></div>
+          <div class="eval-bar-text" id="eval-bar-text">0.0</div>
+        </div>
+        <div class="board-container" id="board-container">
+          <svg class="board-svg" id="board-svg" viewBox="0 0 800 800">
+            <g id="board-squares"></g>
+            <g id="board-highlights"></g>
+            <g id="board-arrows"></g>
+            <g id="board-pieces"></g>
+            <g id="board-coords"></g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="board-controls">
+        <button class="btn btn-secondary btn-icon" id="btn-first" title="First move">|◀</button>
+        <button class="btn btn-secondary btn-icon" id="btn-prev" title="Previous move">◀</button>
+        <input type="range" class="move-slider" id="move-slider" min="0" max="0" value="0">
+        <button class="btn btn-secondary btn-icon" id="btn-next" title="Next move">▶</button>
+        <button class="btn btn-secondary btn-icon" id="btn-last" title="Last move">▶|</button>
+        <button class="btn btn-secondary btn-icon" id="btn-flip" title="Flip board">⇅</button>
+        <button class="btn btn-secondary btn-sm" id="btn-arrows">Hide Arrows</button>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="panel">
+        <div class="panel-header">
+          <span>Moves</span>
+          <span id="game-info" style="font-size:0.75rem;color:var(--text-muted)">No game loaded</span>
+        </div>
+        <div class="panel-body">
+          <div class="move-list" id="move-list">
+            <div style="color:var(--text-muted);text-align:center;grid-column:1/-1;padding:20px">Load a PGN to see moves</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1;display:flex;flex-direction:column">
+        <div class="tabs">
+          <div class="tab active" data-tab="engine">Engine</div>
+          <div class="tab" data-tab="llm">AI Analysis</div>
+          <div class="tab" data-tab="report">Report</div>
+        </div>
+
+        <div class="tab-content active" id="tab-engine" style="flex:1;display:flex;flex-direction:column">
+          <div class="panel-body" style="flex:1;display:flex;flex-direction:column">
+            <div class="engine-config">
+              <div class="config-group">
+                <label>Depth:</label>
+                <select id="engine-depth">
+                  <option value="12">12</option>
+                  <option value="15">15</option>
+                  <option value="18" selected>18</option>
+                  <option value="20">20</option>
+                  <option value="22">22</option>
+                </select>
+              </div>
+              <div class="config-group">
+                <label>Lines:</label>
+                <select id="engine-lines">
+                  <option value="1">1</option>
+                  <option value="3" selected>3</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+            </div>
+            <div class="engine-actions">
+              <button class="btn btn-primary" id="btn-analyze">Analyze Position</button>
+              <button class="btn btn-danger" id="btn-stop" disabled>Stop</button>
+              <button class="btn btn-info" id="btn-full-analysis">Run Full Game Analysis</button>
+            </div>
+            <div class="engine-status" id="engine-status">Ready</div>
+            <div class="engine-lines" id="engine-lines" style="flex:1;overflow-y:auto">
+              <div style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px">Click "Analyze Position" to start engine analysis</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-llm" style="flex:1">
+          <div class="panel-body" style="height:100%;display:flex;flex-direction:column">
+            <div id="llm-key-prompt" style="display:none;margin-bottom:12px">
+              <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:4px">Groq API Key:</label>
+              <div style="display:flex;gap:8px">
+                <input type="password" id="llm-api-key" placeholder="gsk_..." style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.85rem">
+                <button class="btn btn-secondary btn-sm" id="btn-save-key">Save</button>
+              </div>
+            </div>
+            <div class="llm-input-group">
+              <select id="llm-preset">
+                <option value="summary">Game Summary</option>
+                <option value="mistakes">Key Mistakes</option>
+                <option value="openings">Opening Analysis</option>
+                <option value="tactics">Tactical Opportunities</option>
+                <option value="improve">How to Improve</option>
+                <option value="current">Current Position</option>
+              </select>
+              <button class="btn btn-primary" id="btn-llm-analyze">Analyze</button>
+            </div>
+            <div id="llm-content" style="flex:1;overflow:hidden">
+              <div style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:40px 20px">Select an analysis type and click "Analyze" to get AI-powered insights</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-report" style="flex:1">
+          <div class="panel-body">
+            <div class="analysis-report" id="analysis-report">
+              <div style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:20px">Run "Full Game Analysis" to generate a detailed report</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <div class="modal-overlay" id="analysis-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span>Running Full Game Analysis</span>
+        <button class="btn btn-secondary btn-icon" id="btn-close-modal" style="padding:4px 8px">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.85rem">
+            <span id="analysis-progress-text">Analyzing move 1 of 0...</span>
+            <span id="analysis-progress-percent">0%</span>
+          </div>
+          <div style="background:var(--bg);border-radius:4px;height:8px;overflow:hidden">
+            <div id="analysis-progress-bar" style="background:var(--accent);height:100%;width:0%;transition:width 0.3s"></div>
+          </div>
+        </div>
+        <div id="analysis-current-move" style="font-family:monospace;font-size:0.8rem;color:var(--text-muted)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="btn-cancel-analysis">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script>
+
+    // ==================== CONFIGURATION ====================
+    const CONFIG = {
+      get GROQ_API_KEY() { return localStorage.getItem('groq_api_key') || ''; },
+      GROQ_MODEL: 'llama-3.3-70b-versatile',
+      STOCKFISH_URL: 'https://cdn.jsdelivr.net/npm/stockfish/src/stockfish.js',
+      DEFAULT_DEPTH: 18,
+      DEFAULT_LINES: 3,
+      FULL_ANALYSIS_DEPTH: 15,
+      ARROWS_ENABLED: true
+    };
+
+    const PIECES = {
+      'w': { 'k': '\u2654', 'q': '\u2655', 'r': '\u2656', 'b': '\u2657', 'n': '\u2658', 'p': '\u2659' },
+      'b': { 'k': '\u265A', 'q': '\u265B', 'r': '\u265C', 'b': '\u265D', 'n': '\u265E', 'p': '\u265F' }
+    };
+
+    const FILES = 'abcdefgh';
+    const RANKS = '87654321';
+
+    // ==================== STATE ====================
+    const state = {
+      game: new Chess(),
+      history: [],
+      currentMove: -1,
+      orientation: 'w',
+      engine: null,
+      engineReady: false,
+      engineAnalyzing: false,
+      engineLines: [],
+      arrowsEnabled: true,
+      moveAnnotations: {},
+      analysisResults: null,
+      fullAnalysisRunning: false,
+      lastMove: null,
+      bestMoveArrow: null,
+      engineEval: 0
+    };
+
+    const $ = id => document.getElementById(id);
+    const boardSvg = $('board-svg');
+    const squaresGroup = $('board-squares');
+    const highlightsGroup = $('board-highlights');
+    const arrowsGroup = $('board-arrows');
+    const piecesGroup = $('board-pieces');
+    const coordsGroup = $('board-coords');
+
+    // ==================== BOARD RENDERING ====================
+    function initBoard() {
+      squaresGroup.innerHTML = '';
+      highlightsGroup.innerHTML = '';
+      coordsGroup.innerHTML = '';
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const isLight = (row + col) % 2 === 0;
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', col * 100);
+          rect.setAttribute('y', row * 100);
+          rect.setAttribute('width', 100);
+          rect.setAttribute('height', 100);
+          rect.setAttribute('fill', isLight ? '#b58863' : '#6d4c41');
+          rect.setAttribute('class', 'board-square');
+          rect.dataset.square = FILES[col] + RANKS[row];
+          rect.addEventListener('click', () => onSquareClick(FILES[col] + RANKS[row]));
+          squaresGroup.appendChild(rect);
+        }
+      }
+      for (let i = 0; i < 8; i++) {
+        const fileLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        fileLabel.setAttribute('x', i * 100 + 92);
+        fileLabel.setAttribute('y', 790);
+        fileLabel.setAttribute('class', 'coord-text');
+        fileLabel.setAttribute('text-anchor', 'end');
+        fileLabel.textContent = FILES[i];
+        coordsGroup.appendChild(fileLabel);
+        const rankLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        rankLabel.setAttribute('x', 8);
+        rankLabel.setAttribute('y', i * 100 + 18);
+        rankLabel.setAttribute('class', 'coord-text');
+        rankLabel.textContent = RANKS[i];
+        coordsGroup.appendChild(rankLabel);
+      }
+    }
+
+    function renderBoard() {
+      piecesGroup.innerHTML = '';
+      highlightsGroup.innerHTML = '';
+      arrowsGroup.innerHTML = '';
+      const position = state.game.fen().split(' ')[0];
+      const rows = position.split('/');
+      for (let rankIdx = 0; rankIdx < 8; rankIdx++) {
+        const row = rows[rankIdx];
+        let fileIdx = 0;
+        for (const char of row) {
+          if (/\d/.test(char)) {
+            fileIdx += parseInt(char);
+          } else {
+            const color = char === char.toUpperCase() ? 'w' : 'b';
+            const piece = char.toLowerCase();
+            const displayFile = state.orientation === 'w' ? fileIdx : 7 - fileIdx;
+            const displayRank = state.orientation === 'w' ? rankIdx : 7 - rankIdx;
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', displayFile * 100 + 50);
+            text.setAttribute('y', displayRank * 100 + 55);
+            text.setAttribute('class', `piece piece-${color}`);
+            text.textContent = PIECES[color][piece];
+            piecesGroup.appendChild(text);
+            fileIdx++;
+          }
+        }
+      }
+      if (state.lastMove) {
+        highlightSquare(state.lastMove.from, 'highlight-lastmove');
+        highlightSquare(state.lastMove.to, 'highlight-lastmove');
+      }
+      if (state.game.in_check()) {
+        const kingSquare = findKing(state.game.fen(), state.game.turn());
+        if (kingSquare) highlightSquare(kingSquare, 'highlight-check');
+      }
+      if (state.bestMoveArrow && state.arrowsEnabled) {
+        drawArrow(state.bestMoveArrow.from, state.bestMoveArrow.to, '#7cb342');
+      }
+      updateEvalBar();
+    }
+
+    function highlightSquare(square, className) {
+      const sq = orientSquare(square);
+      const file = FILES.indexOf(sq[0]);
+      const rank = RANKS.indexOf(sq[1]);
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', file * 100);
+      rect.setAttribute('y', rank * 100);
+      rect.setAttribute('width', 100);
+      rect.setAttribute('height', 100);
+      rect.setAttribute('class', className);
+      rect.setAttribute('pointer-events', 'none');
+      highlightsGroup.appendChild(rect);
+    }
+
+    function drawArrow(from, to, color) {
+      const f = orientSquare(from);
+      const t = orientSquare(to);
+      const x1 = FILES.indexOf(f[0]) * 100 + 50;
+      const y1 = RANKS.indexOf(f[1]) * 100 + 50;
+      const x2 = FILES.indexOf(t[0]) * 100 + 50;
+      const y2 = RANKS.indexOf(t[1]) * 100 + 50;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+      line.setAttribute('stroke', color);
+      line.setAttribute('class', 'arrow-line');
+      arrowsGroup.appendChild(line);
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const headLen = 15;
+      const hx = x2 - headLen * Math.cos(angle);
+      const hy = y2 - headLen * Math.sin(angle);
+      const head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const p1x = x2, p1y = y2;
+      const p2x = hx - 8 * Math.sin(angle);
+      const p2y = hy + 8 * Math.cos(angle);
+      const p3x = hx + 8 * Math.sin(angle);
+      const p3y = hy - 8 * Math.cos(angle);
+      head.setAttribute('points', `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
+      head.setAttribute('fill', color);
+      head.setAttribute('class', 'arrow-head');
+      arrowsGroup.appendChild(head);
+    }
+
+    function orientSquare(square) {
+      if (state.orientation === 'w') return square;
+      const file = FILES[7 - FILES.indexOf(square[0])];
+      const rank = RANKS[7 - RANKS.indexOf(square[1])];
+      return file + rank;
+    }
+
+    function findKing(fen, turn) {
+      const pos = fen.split(' ')[0];
+      const rows = pos.split('/');
+      const kingChar = turn === 'w' ? 'K' : 'k';
+      for (let r = 0; r < 8; r++) {
+        let f = 0;
+        for (const c of rows[r]) {
+          if (/\d/.test(c)) f += parseInt(c);
+          else if (c === kingChar) return FILES[f] + RANKS[r];
+          else f++;
+        }
+      }
+      return null;
+    }
+
+    function onSquareClick(square) {
+      console.log('Clicked', square);
+    }
+
+    function updateEvalBar() {
+      const bar = $('eval-bar-white');
+      const text = $('eval-bar-text');
+      let evalScore = state.engineEval;
+      let displayText = evalScore.toFixed(1);
+      let heightPercent = 50;
+      if (Math.abs(evalScore) > 10) {
+        heightPercent = evalScore > 0 ? 95 : 5;
+      } else {
+        heightPercent = 50 + (evalScore / 10) * 45;
+      }
+      bar.style.height = heightPercent + '%';
+      text.textContent = (evalScore > 0 ? '+' : '') + displayText;
+    }
+
+    // ==================== GAME NAVIGATION ====================
+    function loadPGN(pgn) {
+      try {
+        const game = new Chess();
+        const valid = game.load_pgn(pgn);
+        if (!valid) throw new Error('Invalid PGN');
+        state.game = game;
+        state.history = game.history({ verbose: true });
+        state.currentMove = state.history.length - 1;
+        state.moveAnnotations = {};
+        state.analysisResults = null;
+        state.lastMove = state.history[state.currentMove] || null;
+        renderBoard();
+        renderMoveList();
+        updateSlider();
+        updateGameInfo(pgn);
+        showToast('Game loaded successfully', 'success');
+        return true;
+      } catch (e) {
+        showToast('Failed to load PGN: ' + e.message, 'error');
+        return false;
+      }
+    }
+
+    function updateGameInfo(pgn) {
+      const headers = {};
+      const headerRegex = /\[(\w+)\s+"([^"]*)"\s*\]/g;
+      let match;
+      while ((match = headerRegex.exec(pgn)) !== null) {
+        headers[match[1]] = match[2];
+      }
+      const white = headers.White || 'White';
+      const black = headers.Black || 'Black';
+      const result = headers.Result || '*';
+      $('game-info').textContent = `${white} vs ${black} ${result}`;
+    }
+
+    function goToMove(index) {
+      if (index < -1 || index >= state.history.length) return;
+      state.currentMove = index;
+      state.game.reset();
+      for (let i = 0; i <= index; i++) {
+        state.game.move(state.history[i]);
+      }
+      state.lastMove = index >= 0 ? state.history[index] : null;
+      renderBoard();
+      updateMoveListHighlight();
+      updateSlider();
+      if (state.engineAnalyzing) {
+        stopEngine();
+        startEngineAnalysis();
+      }
+    }
+
+    function firstMove() { goToMove(-1); }
+    function prevMove() { goToMove(state.currentMove - 1); }
+    function nextMove() { goToMove(state.currentMove + 1); }
+    function lastMove() { goToMove(state.history.length - 1); }
+
+    function flipBoard() {
+      state.orientation = state.orientation === 'w' ? 'b' : 'w';
+      initBoard();
+      renderBoard();
+    }
+
+    function toggleArrows() {
+      state.arrowsEnabled = !state.arrowsEnabled;
+      $('btn-arrows').textContent = state.arrowsEnabled ? 'Hide Arrows' : 'Show Arrows';
+      renderBoard();
+    }
+
+    // ==================== MOVE LIST ====================
+    function renderMoveList() {
+      const container = $('move-list');
+      container.innerHTML = '';
+      if (state.history.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);text-align:center;grid-column:1/-1;padding:20px">No moves</div>';
+        return;
+      }
+      for (let i = 0; i < state.history.length; i += 2) {
+        const moveNum = document.createElement('div');
+        moveNum.className = 'move-number';
+        moveNum.textContent = Math.floor(i / 2) + 1 + '.';
+        container.appendChild(moveNum);
+        const whiteEl = createMoveElement(i, state.history[i]);
+        container.appendChild(whiteEl);
+        if (i + 1 < state.history.length) {
+          const blackEl = createMoveElement(i + 1, state.history[i + 1]);
+          container.appendChild(blackEl);
+        } else {
+          container.appendChild(document.createElement('div'));
+        }
+      }
+      updateMoveListHighlight();
+    }
+
+    function createMoveElement(index, move) {
+      const el = document.createElement('div');
+      el.className = 'move-item';
+      el.textContent = move.san;
+      el.dataset.index = index;
+      const annotation = state.moveAnnotations[index];
+      if (annotation) {
+        el.classList.add(annotation.classification);
+        if (annotation.evalDiff !== undefined) {
+          el.title = `${annotation.classification}: ${annotation.evalDiff > 0 ? '+' : ''}${annotation.evalDiff.toFixed(2)}`;
+        }
+      }
+      el.addEventListener('click', () => goToMove(index));
+      return el;
+    }
+
+    function updateMoveListHighlight() {
+      document.querySelectorAll('.move-item').forEach(el => {
+        el.classList.toggle('active', parseInt(el.dataset.index) === state.currentMove);
+      });
+    }
+
+    function updateSlider() {
+      const slider = $('move-slider');
+      slider.max = Math.max(0, state.history.length - 1);
+      slider.value = state.currentMove;
+    }
+
+    // ==================== ENGINE ====================
+    async function initEngine() {
+      if (state.engine) return;
+      try {
+        $('engine-status').textContent = 'Loading Stockfish...';
+        const response = await fetch(CONFIG.STOCKFISH_URL);
+        if (!response.ok) throw new Error('Failed to fetch Stockfish');
+        const script = await response.text();
+        const blob = new Blob([script], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+        state.engine = new Worker(workerUrl);
+        state.engine.onmessage = handleEngineMessage;
+        state.engine.onerror = (e) => {
+          console.error('Engine error:', e);
+          showToast('Engine error: ' + e.message, 'error');
+        };
+        sendEngineCommand('uci');
+        sendEngineCommand('setoption name MultiPV value ' + CONFIG.DEFAULT_LINES);
+        sendEngineCommand('isready');
+        showToast('Stockfish engine loaded', 'success');
+      } catch (e) {
+        console.error('Failed to load engine:', e);
+        $('engine-status').textContent = 'Engine failed to load';
+        showToast('Failed to load Stockfish. Using fallback mode.', 'error');
+      }
+    }
+
+    function sendEngineCommand(cmd) {
+      if (state.engine) state.engine.postMessage(cmd);
+    }
+
+    function handleEngineMessage(e) {
+      const line = e.data;
+      if (line === 'readyok') {
+        state.engineReady = true;
+        $('engine-status').textContent = 'Ready';
+      }
+      if (line.startsWith('info') && line.includes('pv')) {
+        parseEngineInfo(line);
+      }
+      if (line.startsWith('bestmove')) {
+        const parts = line.split(' ');
+        if (parts[1] && parts[1] !== '(none)') {
+          state.bestMoveArrow = {
+            from: parts[1].substring(0, 2),
+            to: parts[1].substring(2, 4)
+          };
+          if (state.arrowsEnabled) renderBoard();
+        }
+        state.engineAnalyzing = false;
+        updateEngineUI();
+      }
+    }
+
+    function parseEngineInfo(line) {
+      const info = {};
+      const tokens = line.split(' ');
+      for (let i = 0; i < tokens.length; i++) {
+        switch (tokens[i]) {
+          case 'depth': info.depth = parseInt(tokens[++i]); break;
+          case 'seldepth': info.seldepth = parseInt(tokens[++i]); break;
+          case 'multipv': info.multipv = parseInt(tokens[++i]); break;
+          case 'score':
+            i++;
+            if (tokens[i] === 'cp') {
+              info.score = parseInt(tokens[++i]) / 100;
+              if (state.game.turn() === 'b') info.score = -info.score;
+            } else if (tokens[i] === 'mate') {
+              info.mate = parseInt(tokens[++i]);
+              if (state.game.turn() === 'b') info.mate = -info.mate;
+            }
+            break;
+          case 'nodes': info.nodes = parseInt(tokens[++i]); break;
+          case 'nps': info.nps = parseInt(tokens[++i]); break;
+          case 'time': info.time = parseInt(tokens[++i]); break;
+          case 'pv':
+            info.pv = tokens.slice(i + 1).join(' ');
+            i = tokens.length;
+            break;
+        }
+      }
+      if (info.multipv) {
+        state.engineLines[info.multipv - 1] = info;
+        renderEngineLines();
+      }
+      if (info.depth) {
+        const scoreText = info.mate !== undefined ? `M${info.mate}` : 
+          (info.score !== undefined ? (info.score > 0 ? '+' : '') + info.score.toFixed(2) : '');
+        $('engine-status').textContent = `Depth: ${info.depth}${info.seldepth ? '/' + info.seldepth : ''} | Score: ${scoreText} | Nodes: ${formatNumber(info.nodes || 0)}`;
+      }
+      if (info.score !== undefined && info.multipv === 1) {
+        state.engineEval = info.score;
+        updateEvalBar();
+      }
+    }
+
+    function renderEngineLines() {
+      const container = $('engine-lines');
+      if (state.engineLines.length === 0) return;
+      container.innerHTML = '';
+      state.engineLines.sort((a, b) => (a.multipv || 0) - (b.multipv || 0));
+      for (const line of state.engineLines) {
+        if (!line) continue;
+        const el = document.createElement('div');
+        el.className = 'engine-line';
+        let evalText = '';
+        if (line.mate !== undefined) {
+          evalText = `M${line.mate}`;
+        } else if (line.score !== undefined) {
+          evalText = (line.score > 0 ? '+' : '') + line.score.toFixed(2);
+        }
+        const pvMoves = line.pv ? line.pv.split(' ').slice(0, 8).join(' ') : '';
+        el.innerHTML = `<span class="line-eval">${evalText}</span><span class="line-pv" title="${line.pv || ''}">${pvMoves}</span>`;
+        el.addEventListener('click', () => {
+          if (line.pv) {
+            const firstMove = line.pv.split(' ')[0];
+            if (firstMove.length >= 4) {
+              state.bestMoveArrow = { from: firstMove.substring(0, 2), to: firstMove.substring(2, 4) };
+              renderBoard();
+            }
+          }
+        });
+        container.appendChild(el);
+      }
+    }
+
+    function startEngineAnalysis() {
+      if (!state.engine) {
+        initEngine().then(() => {
+          if (state.engineReady) doAnalyze();
+        });
+        return;
+      }
+      if (state.engineReady) doAnalyze();
+    }
+
+    function doAnalyze() {
+      state.engineAnalyzing = true;
+      state.engineLines = [];
+      updateEngineUI();
+      const depth = parseInt($('engine-depth').value);
+      const lines = parseInt($('engine-lines').value);
+      sendEngineCommand('setoption name MultiPV value ' + lines);
+      sendEngineCommand('position fen ' + state.game.fen());
+      sendEngineCommand('go depth ' + depth);
+    }
+
+    function stopEngine() {
+      sendEngineCommand('stop');
+      state.engineAnalyzing = false;
+      updateEngineUI();
+    }
+
+    function updateEngineUI() {
+      $('btn-analyze').disabled = state.engineAnalyzing;
+      $('btn-stop').disabled = !state.engineAnalyzing;
+      $('btn-full-analysis').disabled = state.engineAnalyzing || state.fullAnalysisRunning;
+      if (!state.engineAnalyzing) {
+        $('engine-status').textContent = 'Ready';
+      }
+    }
+
+    // ==================== FULL GAME ANALYSIS ====================
+    async function runFullGameAnalysis() {
+      if (state.history.length === 0) {
+        showToast('Load a game first', 'error');
+        return;
+      }
+      if (!state.engineReady) {
+        showToast('Engine not ready yet. Please wait...', 'info');
+        await initEngine();
+        while (!state.engineReady) await sleep(500);
+      }
+      state.fullAnalysisRunning = true;
+      state.moveAnnotations = {};
+      updateEngineUI();
+      $('analysis-modal').classList.add('open');
+
+      const evaluations = [];
+      const tempGame = new Chess();
+
+      for (let i = 0; i < state.history.length; i++) {
+        if (!state.fullAnalysisRunning) break;
+
+        $('analysis-progress-text').textContent = `Analyzing move ${i + 1} of ${state.history.length}...`;
+        $('analysis-progress-percent').textContent = Math.round((i / state.history.length) * 100) + '%';
+        $('analysis-progress-bar').style.width = (i / state.history.length * 100) + '%';
+        $('analysis-current-move').textContent = `${Math.floor(i/2)+1}${i%2===0?'.':'...'} ${state.history[i].san}`;
+
+        // Analyze position BEFORE the move
+        const fenBefore = tempGame.fen();
+        const evalBefore = await analyzePosition(fenBefore, CONFIG.FULL_ANALYSIS_DEPTH);
+
+        // Make the move
+        tempGame.move(state.history[i]);
+
+        // Analyze position AFTER the move
+        const fenAfter = tempGame.fen();
+        const evalAfter = await analyzePosition(fenAfter, CONFIG.FULL_ANALYSIS_DEPTH);
+
+        evaluations.push({
+          moveIndex: i,
+          san: state.history[i].san,
+          evalBefore: evalBefore,
+          evalAfter: evalAfter,
+          evalDiff: evalAfter - evalBefore
+        });
+
+        // Small delay to keep UI responsive
+        await sleep(50);
+      }
+
+      if (state.fullAnalysisRunning) {
+        $('analysis-progress-percent').textContent = '100%';
+        $('analysis-progress-bar').style.width = '100%';
+        await sleep(300);
+      }
+
+      $('analysis-modal').classList.remove('open');
+      state.fullAnalysisRunning = false;
+      updateEngineUI();
+
+      if (evaluations.length > 0) {
+        classifyMoves(evaluations);
+        renderMoveList();
+        generateReport(evaluations);
+        showToast('Full game analysis complete!', 'success');
+      }
+    }
+
+    function analyzePosition(fen, depth) {
+      return new Promise((resolve) => {
+        let resolved = false;
+        const timeout = setTimeout(() => {
+          if (!resolved) { resolved = true; resolve(0); }
+        }, 5000);
+
+        const listener = (e) => {
+          const line = e.data;
+          if (line.startsWith('info') && line.includes('score') && line.includes(`depth ${depth}`)) {
+            const tokens = line.split(' ');
+            let score = 0;
+            for (let i = 0; i < tokens.length; i++) {
+              if (tokens[i] === 'score') {
+                i++;
+                if (tokens[i] === 'cp') score = parseInt(tokens[++i]) / 100;
+                else if (tokens[i] === 'mate') score = parseInt(tokens[++i]) > 0 ? 10 : -10;
+                break;
+              }
+            }
+            // Adjust for side to move
+            const turn = fen.split(' ')[1];
+            if (turn === 'b') score = -score;
+
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timeout);
+              state.engine.removeEventListener('message', listener);
+              resolve(score);
+            }
+          }
+          if (line.startsWith('bestmove') && !resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            state.engine.removeEventListener('message', listener);
+            resolve(0);
+          }
+        };
+
+        state.engine.addEventListener('message', listener);
+        sendEngineCommand('position fen ' + fen);
+        sendEngineCommand('go depth ' + depth);
+      });
+    }
+
+    function classifyMoves(evaluations) {
+      for (const evalData of evaluations) {
+        const diff = Math.abs(evalData.evalDiff);
+        let classification = 'good';
+
+        if (diff > 3.0) classification = 'blunder';
+        else if (diff > 1.5) classification = 'mistake';
+        else if (diff > 0.8) classification = 'inaccuracy';
+        else if (diff < 0.1) classification = 'best';
+        else if (diff < 0.3) classification = 'excellent';
+        else if (diff < 0.6) classification = 'good';
+
+        state.moveAnnotations[evalData.moveIndex] = {
+          classification: classification,
+          evalDiff: evalData.evalDiff,
+          evalBefore: evalData.evalBefore,
+          evalAfter: evalData.evalAfter
+        };
+      }
+    }
+
+    function generateReport(evaluations) {
+      const stats = {
+        blunders: 0, mistakes: 0, inaccuracies: 0,
+        good: 0, excellent: 0, best: 0, brilliant: 0
+      };
+      for (const e of evaluations) {
+        const c = state.moveAnnotations[e.moveIndex].classification;
+        if (stats[c] !== undefined) stats[c]++;
+      }
+
+      const reportEl = $('analysis-report');
+      reportEl.innerHTML = `
+        <div class="report-stat"><span class="report-stat-label">Total Moves</span><span class="report-stat-value">${evaluations.length}</span></div>
+        <div class="report-stat"><span class="report-stat-label" style="color:var(--best)">Best Moves</span><span class="report-stat-value" style="color:var(--best)">${stats.best}</span></div>
+        <div class="report-stat"><span class="report-stat-label" style="color:var(--excellent)">Excellent</span><span class="report-stat-value" style="color:var(--excellent)">${stats.excellent}</span></div>
+        <div class="report-stat"><span class="report-stat-label" style="color:var(--good)">Good</span><span class="report-stat-value" style="color:var(--good)">${stats.good}</span></div>
+        <div class="report-stat"><span class="report-stat-label" style="color:var(--inaccuracy)">Inaccuracies</span><span class="report-stat-value" style="color:var(--inaccuracy)">${stats.inaccuracies}</span></div>
+        <div class="report-stat"><span class="report-stat-label" style="color:var(--mistake)">Mistakes</span><span class="report-stat-value" style="color:var(--mistake)">${stats.mistakes}</span></div>
+        <div class="report-stat"><span class="report-stat-label" style="color:var(--blunder)">Blunders</span><span class="report-stat-value" style="color:var(--blunder)">${stats.blunders}</span></div>
+        <div class="report-stat"><span class="report-stat-label">Accuracy (est.)</span><span class="report-stat-value">${calculateAccuracy(evaluations).toFixed(1)}%</span></div>
+      `;
+
+      state.analysisResults = evaluations;
+    }
+
+    function calculateAccuracy(evaluations) {
+      if (evaluations.length === 0) return 0;
+      let total = 0;
+      for (const e of evaluations) {
+        const diff = Math.abs(e.evalDiff);
+        if (diff < 0.1) total += 100;
+        else if (diff < 0.3) total += 90;
+        else if (diff < 0.6) total += 75;
+        else if (diff < 1.0) total += 60;
+        else if (diff < 1.5) total += 45;
+        else if (diff < 3.0) total += 25;
+        else total += 10;
+      }
+      return total / evaluations.length;
+    }
+
+    function cancelAnalysis() {
+      state.fullAnalysisRunning = false;
+      $('analysis-modal').classList.remove('open');
+      updateEngineUI();
+    }
+
+    // ==================== LLM INTEGRATION ====================
+    async function analyzeWithLLM() {
+      const preset = $('llm-preset').value;
+      const contentDiv = $('llm-content');
+
+      if (state.history.length === 0) {
+        showToast('Load a game first', 'error');
+        return;
+      }
+
+      const apiKey = CONFIG.GROQ_API_KEY;
+      if (!apiKey) {
+        $('llm-key-prompt').style.display = 'block';
+        contentDiv.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">Please enter your Groq API key above to use AI analysis.</div>';
+        return;
+      }
+
+      contentDiv.innerHTML = '<div class="llm-loading"><div class="spinner"></div><span>Analyzing with AI...</span></div>';
+
+      const pgn = rebuildPGN();
+      const currentFEN = state.game.fen();
+      const prompt = buildLLMPrompt(preset, pgn, currentFEN);
+
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + (CONFIG.GROQ_API_KEY || ''),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: CONFIG.GROQ_MODEL,
+            messages: [
+              { role: 'system', content: 'You are a chess Grandmaster and coach. Provide concise, insightful analysis.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error?.message || 'API request failed');
+        }
+
+        const data = await response.json();
+        const analysis = data.choices[0].message.content;
+        contentDiv.innerHTML = `<div class="llm-response">${escapeHtml(analysis)}</div>`;
+      } catch (e) {
+        contentDiv.innerHTML = `<div style="color:var(--danger);padding:20px">Error: ${escapeHtml(e.message)}</div>`;
+        showToast('LLM analysis failed: ' + e.message, 'error');
+      }
+    }
+
+    function buildLLMPrompt(preset, pgn, fen) {
+      const baseInfo = `Current position FEN: ${fen}\n\nGame PGN:\n${pgn}`;
+      switch (preset) {
+        case 'summary':
+          return `Provide a brief summary of this chess game (3-5 sentences). Mention the opening, key turning points, and the overall result.\n\n${baseInfo}`;
+        case 'mistakes':
+          return `Identify the 2-3 most significant mistakes or blunders in this game. For each, explain what was played, what should have been played instead, and why. Be specific with move numbers.\n\n${baseInfo}`;
+        case 'openings':
+          return `Analyze the opening phase of this game (first 10-15 moves). Identify the opening name/variant, assess whether both players followed theory, and suggest improvements.\n\n${baseInfo}`;
+        case 'tactics':
+          return `Identify any tactical motifs, combinations, or missed tactical opportunities in this game. Explain the tactics clearly.\n\n${baseInfo}`;
+        case 'improve':
+          return `As a chess coach, give 3-5 specific, actionable suggestions for how the losing player (or both players) could improve. Focus on strategic concepts, not just specific moves.\n\n${baseInfo}`;
+        case 'current':
+          return `Analyze the current position on the board. Assess who is better and why, suggest the best plan for both sides, and identify any immediate threats.\n\n${baseInfo}`;
+        default:
+          return `Analyze this chess game.\n\n${baseInfo}`;
+      }
+    }
+
+    function rebuildPGN() {
+      const temp = new Chess();
+      for (const move of state.history) {
+        temp.move(move);
+      }
+      return temp.pgn();
+    }
+
+    // ==================== UTILITIES ====================
+    function formatNumber(num) {
+      if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+      return num.toString();
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = $('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // ==================== SAMPLE GAME ====================
+    const SAMPLE_PGN = `[Event "Casual Game"]
+[Site "Chess.com"]
+[Date "2024.01.15"]
+[White "Player1"]
+[Black "Player2"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6
+8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 11. Nbd2 Bb7 12. Bc2 Re8 13. Nf1 Bf8
+14. Ng3 g6 15. Bg5 h6 16. Bd2 Bg7 17. a4 c5 18. d5 c4 19. b4 Nf8 20. Be3 N6h7
+21. Qd2 h5 22. Bd1 Qc7 23. Nh4 Qd8 24. Qc2 Bc8 25. Nf3 Bg4 26. Nd2 Bxd1
+27. Raxd1 Qc7 28. Ndf1 Nd7 29. f3 Rec8 30. Bf2 Qd8 31. Ne3 Ndf6 32. Nc2 Ne8
+33. Ne2 Nef6 34. Ng3 Nh7 35. Nf1 Nhf6 36. Ne3 Nh7 37. Nf1 Nhf6 38. Kf1 Kh7
+39. Ke2 Kg8 40. Kd2 Kh7 41. Kc1 Kg8 42. Kb1 Kh7 43. Ka2 Kg8 44. Ka3 Kh7
+45. axb5 axb5 46. Ra1 Rxa1+ 47. Rxa1 Ra8 48. Rxa8 Qxa8+ 49. Kb2 Qd8
+50. Qd2 Kg8 51. g4 hxg4 52. hxg4 Nhf6 53. g5 Nh7 54. Nh4 Nhf6 55. Nf1 Nh7
+56. Nh4 Nhf6 57. Nf1 Nh7 58. Nh4 Nhf6 59. Nf1 Nh7 60. Nh4 Nhf6 61. Nf1 Nh7
+62. Nh4 Nhf6 63. Nf1 Nh7 64. Nh4 Nhf6 65. Nf1 Nh7 66. Nh4 Nhf6 67. Nf1 Nh7
+68. Nh4 Nhf6 69. Nf1 Nh7 70. Nh4 Nhf6 71. Nf1 Nh7 72. Nh4 Nhf6 73. Nf1 Nh7
+74. Nh4 Nhf6 75. Nf1 Nh7 76. Nh4 Nhf6 77. Nf1 Nh7 78. Nh4 Nhf6 79. Nf1 Nh7
+80. Nh4 Nhf6 81. Nf1 Nh7 82. Nh4 Nhf6 83. Nf1 Nh7 84. Nh4 Nhf6 85. Nf1 Nh7
+86. Nh4 Nhf6 87. Nf1 Nh7 88. Nh4 Nhf6 89. Nf1 Nh7 90. Nh4 Nhf6 91. Nf1 Nh7
+92. Nh4 Nhf6 93. Nf1 Nh7 94. Nh4 Nhf6 95. Nf1 Nh7 96. Nh4 Nhf6 97. Nf1 Nh7
+98. Nh4 Nhf6 99. Nf1 Nh7 100. Nh4 Nhf6 101. Nf1 Nh7 102. Nh4 Nhf6 103. Nf1 Nh7
+104. Nh4 Nhf6 105. Nf1 Nh7 106. Nh4 Nhf6 107. Nf1 Nh7 108. Nh4 Nhf6 109. Nf1 Nh7
+110. Nh4 Nhf6 111. Nf1 Nh7 112. Nh4 Nhf6 113. Nf1 Nh7 114. Nh4 Nhf6 115. Nf1 Nh7
+116. Nh4 Nhf6 117. Nf1 Nh7 118. Nh4 Nhf6 119. Nf1 Nh7 120. Nh4 Nhf6 121. Nf1 Nh7
+122. Nh4 Nhf6 123. Nf1 Nh7 124. Nh4 Nhf6 125. Nf1 Nh7 126. Nh4 Nhf6 127. Nf1 Nh7
+128. Nh4 Nhf6 129. Nf1 Nh7 130. Nh4 Nhf6 131. Nf1 Nh7 132. Nh4 Nhf6 133. Nf1 Nh7
+134. Nh4 Nhf6 135. Nf1 Nh7 136. Nh4 Nhf6 137. Nf1 Nh7 138. Nh4 Nhf6 139. Nf1 Nh7
+140. Nh4 Nhf6 141. Nf1 Nh7 142. Nh4 Nhf6 143. Nf1 Nh7 144. Nh4 Nhf6 145. Nf1 Nh7
+146. Nh4 Nhf6 147. Nf1 Nh7 148. Nh4 Nhf6 149. Nf1 Nh7 150. Nh4 Nhf6 151. Nf1 Nh7
+152. Nh4 Nhf6 153. Nf1 Nh7 154. Nh4 Nhf6 155. Nf1 Nh7 156. Nh4 Nhf6 157. Nf1 Nh7
+158. Nh4 Nhf6 159. Nf1 Nh7 160. Nh4 Nhf6 161. Nf1 Nh7 162. Nh4 Nhf6 163. Nf1 Nh7
+164. Nh4 Nhf6 165. Nf1 Nh7 166. Nh4 Nhf6 167. Nf1 Nh7 168. Nh4 Nhf6 169. Nf1 Nh7
+170. Nh4 Nhf6 171. Nf1 Nh7 172. Nh4 Nhf6 173. Nf1 Nh7 174. Nh4 Nhf6 175. Nf1 Nh7
+176. Nh4 Nhf6 177. Nf1 Nh7 178. Nh4 Nhf6 179. Nf1 Nh7 180. Nh4 Nhf6 181. Nf1 Nh7
+182. Nh4 Nhf6 183. Nf1 Nh7 184. Nh4 Nhf6 185. Nf1 Nh7 186. Nh4 Nhf6 187. Nf1 Nh7
+188. Nh4 Nhf6 189. Nf1 Nh7 190. Nh4 Nhf6 191. Nf1 Nh7 192. Nh4 Nhf6 193. Nf1 Nh7
+194. Nh4 Nhf6 195. Nf1 Nh7 196. Nh4 Nhf6 197. Nf1 Nh7 198. Nh4 Nhf6 199. Nf1 Nh7
+200. Nh4 Nhf6 1/2-1/2`;
+
+    // ==================== EVENT LISTENERS ====================
+    document.addEventListener('DOMContentLoaded', () => {
+      initBoard();
+      renderBoard();
+
+      // PGN Panel
+      $('btn-toggle-pgn').addEventListener('click', () => {
+        $('pgn-panel').classList.toggle('open');
+      });
+      $('btn-load-pgn').addEventListener('click', () => {
+        const pgn = $('pgn-input').value.trim();
+        if (pgn) loadPGN(pgn);
+      });
+      $('btn-clear-pgn').addEventListener('click', () => {
+        $('pgn-input').value = '';
+      });
+      $('btn-load-sample').addEventListener('click', () => {
+        loadPGN(SAMPLE_PGN);
+      });
+
+      // Board controls
+      $('btn-first').addEventListener('click', firstMove);
+      $('btn-prev').addEventListener('click', prevMove);
+      $('btn-next').addEventListener('click', nextMove);
+      $('btn-last').addEventListener('click', lastMove);
+      $('btn-flip').addEventListener('click', flipBoard);
+      $('btn-arrows').addEventListener('click', toggleArrows);
+      $('move-slider').addEventListener('input', (e) => goToMove(parseInt(e.target.value)));
+
+      // Engine
+      $('btn-analyze').addEventListener('click', startEngineAnalysis);
+      $('btn-stop').addEventListener('click', stopEngine);
+      $('btn-full-analysis').addEventListener('click', runFullGameAnalysis);
+      $('btn-cancel-analysis').addEventListener('click', cancelAnalysis);
+      $('btn-close-modal').addEventListener('click', cancelAnalysis);
+
+      // LLM
+      $('btn-llm-analyze').addEventListener('click', analyzeWithLLM);
+      $('btn-save-key').addEventListener('click', () => {
+        const key = $('llm-api-key').value.trim();
+        if (key) {
+          localStorage.setItem('groq_api_key', key);
+          $('llm-key-prompt').style.display = 'none';
+          showToast('API key saved', 'success');
+        }
+      });
+      // Show key prompt if no key stored
+      if (!CONFIG.GROQ_API_KEY) {
+        $('llm-key-prompt').style.display = 'block';
+      }
+
+      // Tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          $(`tab-${tab.dataset.tab}`).classList.add('active');
+        });
+      });
+
+      // Keyboard
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+        switch (e.key) {
+          case 'ArrowLeft': prevMove(); break;
+          case 'ArrowRight': nextMove(); break;
+          case 'Home': firstMove(); break;
+          case 'End': lastMove(); break;
+          case 'f': flipBoard(); break;
+          case 'a': startEngineAnalysis(); break;
+          case 's': stopEngine(); break;
+        }
+      });
+
+      // Init engine in background
+      initEngine();
+    });
+  </script>
+</body>
 </html>
