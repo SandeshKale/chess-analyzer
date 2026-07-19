@@ -1,19 +1,27 @@
 /**
- * Stockfish Engine Wrapper
- * Handles UCI communication with Stockfish WASM
+ * Stockfish Engine Wrapper with Promise-Based Analysis
  * 
- * Architecture: Worker-based isolation for non-blocking UI
+ * Key feature: analyzePositionAsync() returns a Promise that resolves
+ * when Stockfish emits 'bestmove', giving full MultiPV results.
  */
 
 import type { AnalysisLine } from '@/types';
 
 const STOCKFISH_CDN = 'https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16.js';
 
+interface PendingRequest {
+  resolve: (lines: AnalysisLine[]) => void;
+  reject: (err: Error) => void;
+  lines: AnalysisLine[];
+  timeout: ReturnType<typeof setTimeout>;
+}
+
 export class StockfishEngine {
   private worker: Worker | null = null;
   private isReady = false;
   private messageQueue: string[] = [];
-  private onMessageCallback: ((line: AnalysisLine | 'readyok' | 'bestmove') => void) | null = null;
+  private pending: PendingRequest | null = null;
+  private onInfoCallback: ((line: AnalysisLine) => void) | null = null;
   private currentMultiPv = 1;
 
   async init(): Promise<void> {
@@ -21,7 +29,6 @@ export class StockfishEngine {
 
     return new Promise((resolve, reject) => {
       try {
-        // Create worker from CDN
         this.worker = new Worker(STOCKFISH_CDN, { type: 'module' });
 
         this.worker.onmessage = (e: MessageEvent<string>) => {
@@ -33,7 +40,6 @@ export class StockfishEngine {
           reject(err);
         };
 
-        // Wait for readyok
         const checkReady = setInterval(() => {
           if (this.isReady) {
             clearInterval(checkReady);
@@ -41,7 +47,6 @@ export class StockfishEngine {
           }
         }, 100);
 
-        // Send initial commands
         this.send('uci');
         this.send('setoption name Use NNUE value true');
         this.send('isready');
@@ -56,19 +61,26 @@ export class StockfishEngine {
 
     if (data.includes('readyok')) {
       this.isReady = true;
-      this.onMessageCallback?.('readyok');
       return;
     }
 
     if (data.includes('bestmove')) {
-      this.onMessageCallback?.('bestmove');
+      if (this.pending) {
+        clearTimeout(this.pending.timeout);
+        this.pending.resolve(this.pending.lines);
+        this.pending = null;
+      }
       return;
     }
 
     if (data.startsWith('info') && data.includes('score')) {
       const line = this.parseInfoLine(data);
       if (line) {
-        this.onMessageCallback?.(line);
+        this.onInfoCallback?.(line);
+        if (this.pending) {
+          const existing = this.pending.lines.filter(l => l.multipvIndex !== line.multipvIndex);
+          this.pending.lines = [...existing, line].sort((a, b) => a.multipvIndex - b.multipvIndex);
+        }
       }
     }
   }
@@ -85,7 +97,6 @@ export class StockfishEngine {
     const multipvIndex = multipvMatch ? parseInt(multipvMatch[1], 10) : 1;
     const scoreType = scoreMatch[1];
     const scoreValue = parseInt(scoreMatch[2], 10);
-
     const pv = pvMatch ? pvMatch[1].trim().split(' ') : [];
 
     if (scoreType === 'mate') {
@@ -98,12 +109,7 @@ export class StockfishEngine {
       };
     }
 
-    return {
-      depth,
-      score: scoreValue,
-      pv,
-      multipvIndex,
-    };
+    return { depth, score: scoreValue, pv, multipvIndex };
   }
 
   send(command: string): void {
@@ -126,8 +132,39 @@ export class StockfishEngine {
     this.send(`go depth ${depth}`);
   }
 
+  /**
+   * Promise-based analysis. Resolves when bestmove is received.
+   * @param timeoutMs - Max wait time before rejecting
+   */
+  analyzePositionAsync(fen: string, depth: number = 20, multipv: number = 3, timeoutMs: number = 15000): Promise<AnalysisLine[]> {
+    return new Promise((resolve, reject) => {
+      if (this.pending) {
+        this.send('stop');
+        clearTimeout(this.pending.timeout);
+        this.pending.reject(new Error('Cancelled by new request'));
+        this.pending = null;
+      }
+
+      const timeout = setTimeout(() => {
+        this.send('stop');
+        if (this.pending) {
+          this.pending.reject(new Error(`Analysis timed out after ${timeoutMs}ms`));
+          this.pending = null;
+        }
+      }, timeoutMs);
+
+      this.pending = { resolve, reject, lines: [], timeout };
+      this.analyzePosition(fen, depth, multipv);
+    });
+  }
+
   stop(): void {
     this.send('stop');
+    if (this.pending) {
+      clearTimeout(this.pending.timeout);
+      this.pending.reject(new Error('Stopped by user'));
+      this.pending = null;
+    }
   }
 
   quit(): void {
@@ -137,8 +174,8 @@ export class StockfishEngine {
     this.isReady = false;
   }
 
-  onMessage(callback: (line: AnalysisLine | 'readyok' | 'bestmove') => void): void {
-    this.onMessageCallback = callback;
+  onInfo(callback: (line: AnalysisLine) => void): void {
+    this.onInfoCallback = callback;
   }
 
   get ready(): boolean {

@@ -1,98 +1,89 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { useChessStore } from './useChessStore';
 import { useStockfish } from './useStockfish';
 import { classifyMove } from '@/utils/evaluation';
-import type { MoveAnalysis } from '@/types';
+import type { MoveAnalysis, AnalysisLine } from '@/types';
 
 export function useAnalysis() {
   const currentGame = useChessStore((s) => s.currentGame);
   const setAnalysis = useChessStore((s) => s.setAnalysis);
-  const { analyze, stop, isAnalyzing } = useStockfish();
+  const { analyzeAsync, stop } = useStockfish();
   const [progress, setProgress] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const abortRef = useRef(false);
 
   const runFullAnalysis = useCallback(async (depth: number = 18) => {
     if (!currentGame) return;
 
+    abortRef.current = false;
+    setIsRunning(true);
+    setProgress(0);
+
     const results: MoveAnalysis[] = [];
     const chess = new Chess();
 
-    for (let i = 0; i < currentGame.moves.length; i++) {
-      setProgress(Math.round((i / currentGame.moves.length) * 100));
+    try {
+      for (let i = 0; i < currentGame.moves.length; i++) {
+        if (abortRef.current) break;
 
-      // Get position before move
-      const beforeFen = chess.fen();
+        setProgress(Math.round((i / currentGame.moves.length) * 100));
 
-      // Analyze position before move (to find best move)
-      // This is simplified - in production you'd want proper async queue management
-      const beforeEval = await analyzePosition(beforeFen, depth, analyze, stop);
+        // Position BEFORE the move
+        const beforeFen = chess.fen();
 
-      // Make the move
-      const move = chess.move(currentGame.moves[i]);
-      const afterFen = chess.fen();
+        // Analyze position before move to find best move
+        const beforeLines = await analyzeAsync(beforeFen, depth);
+        const bestLine = beforeLines[0] ?? null;
+        const evalBefore = bestLine?.score ?? 0;
 
-      // Analyze position after move
-      const afterEval = await analyzePosition(afterFen, depth, analyze, stop);
+        // Make the actual move
+        const move = chess.move(currentGame.moves[i]);
+        const afterFen = chess.fen();
 
-      const evalBefore = beforeEval ?? 0;
-      const evalAfter = afterEval ?? 0;
+        // Analyze position AFTER the move
+        const afterLines = await analyzeAsync(afterFen, depth);
+        const afterBestLine = afterLines[0] ?? null;
+        const evalAfter = afterBestLine?.score ?? 0;
 
-      // Adjust for side to move
-      const isWhite = i % 2 === 0;
-      const playerEvalBefore = isWhite ? evalBefore : -evalBefore;
-      const playerEvalAfter = isWhite ? evalAfter : -evalAfter;
+        // Classification is based on eval drop from current player's perspective
+        const isWhite = i % 2 === 0;
+        const playerEvalBefore = isWhite ? evalBefore : -evalBefore;
+        const playerEvalAfter = isWhite ? evalAfter : -evalAfter;
 
-      results.push({
-        san: move.san,
-        uci: move.from + move.to + (move.promotion || ''),
-        fen: afterFen,
-        moveNumber: Math.floor(i / 2) + 1,
-        isWhite,
-        evaluation: evalAfter,
-        classification: classifyMove(playerEvalBefore, playerEvalAfter),
-        alternatives: [], // Would be populated from MultiPV
-      });
+        results.push({
+          san: move.san,
+          uci: move.from + move.to + (move.promotion || ''),
+          fen: afterFen,
+          moveNumber: Math.floor(i / 2) + 1,
+          isWhite,
+          evaluation: evalAfter,
+          classification: classifyMove(playerEvalBefore, playerEvalAfter),
+          bestLine: bestLine ? { ...bestLine } : undefined,
+          alternatives: beforeLines.slice(1),
+        });
+      }
+
+      setAnalysis(results);
+    } catch (err) {
+      console.error('Analysis error:', err);
+    } finally {
+      setIsRunning(false);
+      setProgress(0);
     }
+  }, [currentGame, analyzeAsync, setAnalysis]);
 
-    setAnalysis(results);
+  const cancelAnalysis = useCallback(() => {
+    abortRef.current = true;
+    stop();
+    setIsRunning(false);
     setProgress(0);
-  }, [currentGame, analyze, stop, setAnalysis]);
+  }, [stop]);
 
   return {
     runFullAnalysis,
-    isAnalyzing,
+    cancelAnalysis,
+    isAnalyzing: isRunning,
     progress,
   };
-}
-
-// Helper to run a single position analysis with promise
-function analyzePosition(
-  fen: string, 
-  depth: number, 
-  analyze: (fen: string, depth?: number) => void,
-  stop: () => void
-): Promise<number | null> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        stop();
-        resolved = true;
-        resolve(null);
-      }
-    }, 5000); // 5s timeout per position
-
-    // This is a simplified version - the real implementation would hook into engine messages
-    // For now, return mock data to keep the architecture clean
-    analyze(fen, depth);
-
-    setTimeout(() => {
-      if (!resolved) {
-        clearTimeout(timeout);
-        resolved = true;
-        stop();
-        resolve(0); // Mock - in real impl, capture from engine lines
-      }
-    }, 1000);
-  });
 }

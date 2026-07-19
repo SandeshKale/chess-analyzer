@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { ParsedGame, MoveAnalysis, EngineState } from '@/types';
 
 interface ChessStore {
@@ -12,7 +13,7 @@ interface ChessStore {
   setGame: (game: ParsedGame | null) => void;
   setMoveIndex: (index: number) => void;
   setAnalysis: (analysis: MoveAnalysis[]) => void;
-  updateEngineState: (state: Partial<EngineState>) => void;
+  updateEngineState: (state: Partial<EngineState> | ((prev: EngineState) => Partial<EngineState>)) => void;
   toggleOrientation: () => void;
   toggleArrows: () => void;
   reset: () => void;
@@ -26,28 +27,45 @@ const defaultEngineState: EngineState = {
   lines: [],
 };
 
-export const useChessStore = create<ChessStore>((set) => ({
-  currentGame: null,
+const initialState = {
+  currentGame: null as ParsedGame | null,
   currentMoveIndex: -1,
-  analysis: [],
+  analysis: [] as MoveAnalysis[],
   engineState: defaultEngineState,
-  boardOrientation: 'white',
+  boardOrientation: 'white' as const,
   showArrows: true,
+};
 
-  setGame: (game) => set({ currentGame: game, currentMoveIndex: -1, analysis: [] }),
-  setMoveIndex: (index) => set({ currentMoveIndex: index }),
-  setAnalysis: (analysis) => set({ analysis }),
-  updateEngineState: (state) => set((prev) => ({ 
-    engineState: { ...prev.engineState, ...state } 
-  })),
-  toggleOrientation: () => set((prev) => ({ 
-    boardOrientation: prev.boardOrientation === 'white' ? 'black' : 'white' 
-  })),
-  toggleArrows: () => set((prev) => ({ showArrows: !prev.showArrows })),
-  reset: () => set({ 
-    currentGame: null, 
-    currentMoveIndex: -1, 
-    analysis: [], 
-    engineState: defaultEngineState 
-  }),
-}));
+export const useChessStore = create<ChessStore>()(
+  persist(
+    (set) => ({
+      ...initialState,
+
+      setGame: (game) => set({ currentGame: game, currentMoveIndex: -1, analysis: [] }),
+      setMoveIndex: (index) => set({ currentMoveIndex: index }),
+      setAnalysis: (analysis) => set({ analysis }),
+      updateEngineState: (state) => set((prev) => ({
+        engineState: { 
+          ...prev.engineState, 
+          ...(typeof state === 'function' ? state(prev.engineState) : state) 
+        },
+      })),
+      toggleOrientation: () => set((prev) => ({ 
+        boardOrientation: prev.boardOrientation === 'white' ? 'black' : 'white' 
+      })),
+      toggleArrows: () => set((prev) => ({ showArrows: !prev.showArrows })),
+      reset: () => set(initialState),
+    }),
+    {
+      name: 'chess-analyzer-storage',
+      partialize: (state) => ({
+        currentGame: state.currentGame,
+        currentMoveIndex: state.currentMoveIndex,
+        analysis: state.analysis,
+        boardOrientation: state.boardOrientation,
+        showArrows: state.showArrows,
+        // Don't persist engineState (worker can't survive reload)
+      }),
+    }
+  )
+);

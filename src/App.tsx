@@ -5,6 +5,7 @@ import { EvaluationBar } from '@/components/EvaluationBar';
 import { EngineControls } from '@/components/EngineControls';
 import { AnalysisPanel } from '@/components/AnalysisPanel';
 import { useChessGame } from '@/hooks/useChessGame';
+import './App.css';
 
 function App() {
   const { hasGame, goToStart, goBackward, goForward, goToEnd } = useChessGame();
@@ -20,7 +21,7 @@ function App() {
       <header style={{ marginBottom: '24px', textAlign: 'center' }}>
         <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700 }}>Chess.com Games Analyzer</h1>
         <p style={{ margin: '4px 0 0', color: '#888', fontSize: '14px' }}>
-          Stockfish 16 NNUE · WASM · Chess.com API
+          Stockfish 16 NNUE · WASM · Chess.com API · Lichess Openings
         </p>
       </header>
 

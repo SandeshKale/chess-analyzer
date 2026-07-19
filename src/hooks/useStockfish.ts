@@ -12,22 +12,18 @@ export function useStockfish() {
     const engine = new StockfishEngine();
     engineRef.current = engine;
 
-    engine.onMessage((msg) => {
-      if (msg === 'readyok') {
-        updateEngineState({ isReady: true });
-      } else if (msg === 'bestmove') {
-        updateEngineState({ isAnalyzing: false });
-      } else {
-        updateEngineState((prev) => {
-          const existing = prev.lines.filter(l => l.multipvIndex !== msg.multipvIndex);
-          return {
-            lines: [...existing, msg].sort((a, b) => a.multipvIndex - b.multipvIndex),
-          };
-        });
-      }
+    engine.onInfo((line) => {
+      updateEngineState((prev) => {
+        const existing = prev.lines.filter(l => l.multipvIndex !== line.multipvIndex);
+        return {
+          lines: [...existing, line].sort((a, b) => a.multipvIndex - b.multipvIndex),
+        };
+      });
     });
 
-    engine.init().catch(console.error);
+    engine.init().then(() => {
+      updateEngineState({ isReady: true });
+    }).catch(console.error);
 
     return () => {
       engine.quit();
@@ -42,6 +38,18 @@ export function useStockfish() {
       depth ?? engineState.depth, 
       multipv ?? engineState.multipv
     );
+  }, [engineState.depth, engineState.multipv, updateEngineState]);
+
+  const analyzeAsync = useCallback(async (fen: string, depth?: number, multipv?: number): Promise<AnalysisLine[]> => {
+    if (!engineRef.current?.ready) throw new Error('Engine not ready');
+    updateEngineState({ isAnalyzing: true, lines: [] });
+    const lines = await engineRef.current.analyzePositionAsync(
+      fen,
+      depth ?? engineState.depth,
+      multipv ?? engineState.multipv
+    );
+    updateEngineState({ isAnalyzing: false, lines });
+    return lines;
   }, [engineState.depth, engineState.multipv, updateEngineState]);
 
   const stop = useCallback(() => {
@@ -65,6 +73,7 @@ export function useStockfish() {
     depth: engineState.depth,
     multipv: engineState.multipv,
     analyze,
+    analyzeAsync,
     stop,
     setDepth,
     setMultiPv,
