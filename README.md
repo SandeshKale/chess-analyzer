@@ -1,222 +1,100 @@
-# ♟️ Chess.com Games Analyzer
+# Chess Analyzer — Game Review
 
-A production-grade chess game analysis tool built with **React 18**, **TypeScript**, **Stockfish 16 NNUE (WASM)**, and the **Chess.com Public API**. Analyze your games with engine-powered evaluations, opening book lookups, move classifications, and export annotated PGNs.
+Pulls your chess.com games for any day/week/month, runs them through a
+self-hosted Stockfish 18 engine (no API, no rate limits, runs entirely in
+your browser), classifies every move (Brilliant / Best / Excellent / Good /
+Book / Inaccuracy / Mistake / Blunder), and can generate plain-English
+coaching notes via Groq's free LLM API.
 
-[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Stockfish](https://img.shields.io/badge/Stockfish-16-81b64c?logo=chess.com&logoColor=white)](https://stockfishchess.org/)
-[![Zustand](https://img.shields.io/badge/Zustand-4.5-FF9F43?logo=react&logoColor=white)](https://github.com/pmndrs/zustand)
-
----
-
-## ✨ Features
-
-### 🔍 Game Import
-- **Paste PGN** — Import any standard PGN with full header support
-- **Chess.com Integration** — Fetch games directly by username via the official Chess.com PubAPI
-- **Sample Game Loader** — Quick-load a World Championship game for testing
-
-### 🧠 Engine Analysis
-- **Stockfish 16 NNUE** — Runs entirely in the browser via WASM (no backend required)
-- **Real-time Position Analysis** — Analyze any position with configurable depth (14–24)
-- **MultiPV Support** — View up to 5 top engine lines simultaneously
-- **Full Game Analysis** — Batch-analyze entire games with progress tracking
-- **Move Classifications** — Automatic tagging: Brilliant, Great, Best, Excellent, Good, Inaccuracy, Mistake, Blunder
-
-### 📊 Visualization
-- **Interactive Chessboard** — `react-chessboard` with smooth animations
-- **Evaluation Bar** — Real-time centipawn display with visual bar
-- **Engine Arrows** — Shows best-move arrows on the board
-- **Move List** — Clickable move navigator with classification colors
-- **Game Stats** — Aggregate breakdown of move quality
-
-### 📚 Opening Book
-- **Lichess Masters DB** — Automatic opening name and ECO code lookup
-- **Master Statistics** — Win/Draw/Loss ratios from master games
-
-### 💾 Export & Persistence
-- **Annotated PGN Export** — Download analysis with `[%eval]` and `[%cal]` annotations
-- **State Persistence** — Zustand `persist` middleware saves sessions to `localStorage`
-
----
-
-## 🏗️ Architecture
-
-```
-chess-analyzer/
-├── src/
-│   ├── components/          # React UI components
-│   │   ├── ChessBoard.tsx   # Interactive board with arrows
-│   │   ├── EngineControls.tsx # Analysis triggers & export
-│   │   ├── MoveList.tsx     # Clickable move navigator
-│   │   ├── EvaluationBar.tsx # Live eval display
-│   │   ├── AnalysisPanel.tsx # Move stats & opening info
-│   │   └── GameImporter.tsx # PGN paste & Chess.com fetch
-│   ├── engine/
-│   │   └── stockfishEngine.ts # UCI wrapper with Promise API
-│   ├── hooks/
-│   │   ├── useChessStore.ts  # Zustand state + persist
-│   │   ├── useChessGame.ts   # Game navigation logic
-│   │   ├── useStockfish.ts   # Engine React hook
-│   │   └── useAnalysis.ts    # Full-game batch analysis
-│   ├── services/
-│   │   ├── chesscomApi.ts    # Chess.com PubAPI client
-│   │   └── openingBook.ts    # Lichess Masters DB client
-│   ├── utils/
-│   │   ├── chessHelpers.ts   # PGN parser, FEN builder
-│   │   ├── evaluation.ts     # Move classification logic
-│   │   └── export.ts         # Annotated PGN generator
-│   ├── types/
-│   │   └── index.ts          # Shared TypeScript interfaces
-│   └── test/                 # Unit tests (Vitest)
-│       ├── chessHelpers.test.ts
-│       ├── evaluation.test.ts
-│       ├── export.test.ts
-│       ├── chesscomApi.test.ts
-│       └── openingBook.test.ts
-├── public/                   # Static assets
-├── eslint.config.js          # ESLint flat config
-├── vitest.config.ts          # Vitest test config
-└── vite.config.ts            # Vite build config
-```
-
-### Key Design Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| **Stockfish via CDN** | WASM loaded from jsDelivr for zero backend. For BFSI deployments, vendor to `public/` for CSP/SRI compliance. |
-| **Promise-based Engine** | `analyzePositionAsync()` resolves on `bestmove`, enabling clean `async/await` in analysis loops. |
-| **Zustand + Persist** | Lightweight state management with automatic `localStorage` hydration. Engine state excluded (workers don't survive reloads). |
-| **No Backend Proxy** | Chess.com PubAPI sends `Access-Control-Allow-Origin: *`, enabling direct browser calls. |
-
----
-
-## 🚀 Quick Start
+## 1. Install
 
 ```bash
-# Clone the repo
-git clone https://github.com/SandeshKale/chess-analyzer.git
-cd chess-analyzer
-
-# Install dependencies
 npm install
-
-# Start dev server
-npm run dev
-
-# Run tests
-npm run test
-
-# Run tests with coverage
-npm run coverage
-
-# Lint
-npm run lint
-
-# Production build
-npm run build
 ```
 
----
+This project was built and verified against Node's current LTS with these
+pinned, mutually-compatible versions (already locked in `package-lock.json`):
+Next.js 16, React 19, react-chessboard 5.10, chess.js 1.4.
 
-## 🧪 Testing
+## 2. (Optional but recommended) Add a free Groq key for the "Coach's notes" panel
 
-Tests are written with **Vitest** + **React Testing Library** + **jsdom**.
+1. Go to https://console.groq.com, sign up (no credit card).
+2. Create an API key.
+3. Copy `.env.local.example` to `.env.local` and paste your key in:
 
 ```bash
-# Watch mode
-npm run test
-
-# CI mode
-npm run test:run
-
-# Coverage report
-npm run coverage
+cp .env.local.example .env.local
+# then edit .env.local:
+GROQ_API_KEY=gsk_...
 ```
 
-### Test Coverage
+Without this, everything else works (pulling games, engine analysis, move
+classification, eval graph) — you'll just see an error if you click
+"Generate" on the coaching panel.
 
-| Module | Tests |
-|--------|-------|
-| `utils/chessHelpers` | PGN parsing, FEN generation, move indexing |
-| `utils/evaluation` | Move classification, eval formatting, percentage conversion |
-| `utils/export` | Annotated PGN generation |
-| `services/chesscomApi` | Archive fetching, error handling (404/429), URL parsing |
-| `services/openingBook` | Lichess opening lookup, error resilience |
+## 3. Run it
 
----
-
-## 📝 Usage Guide
-
-### Analyzing a Chess.com Game
-
-1. Click the **Chess.com** tab in the importer
-2. Enter your username (e.g., `MagnusCarlsen`)
-3. Click **Fetch Archives** — your monthly game archives appear
-4. Select a month — games load with ratings, time controls, and accuracies
-5. Click any game to load it into the analyzer
-
-### Running Full Analysis
-
-1. Load a game (via PGN or Chess.com)
-2. In the **Engine** panel, set desired **Depth** (18 recommended) and **Lines**
-3. Click **Run Full Game Analysis**
-4. Watch the progress bar — each move is analyzed before and after to compute accurate classification
-5. Navigate moves in the list or with arrow buttons to see per-move details
-
-### Exporting Results
-
-Once analysis is complete, click **Export Annotated PGN** to download a file with:
-- `[%eval +0.45]` markers after every move
-- `[%cal e2e4]` arrows showing engine best moves
-- Classification comments (`Excellent`, `Mistake.`, `Blunder!`, etc.)
-
----
-
-## ⚙️ Configuration
-
-### Engine Settings
-
-| Setting | Range | Default | Description |
-|---------|-------|---------|-------------|
-| Depth | 14–24 | 20 | Search depth in plies |
-| Lines | 1–5 | 3 | MultiPV — number of top variations |
-
-### Environment Variables (optional)
-
-For custom deployments, create `.env.local`:
-
-```env
-# Override Stockfish CDN (for CSP compliance)
-VITE_STOCKFISH_URL=/stockfish/stockfish-nnue-16.js
+```bash
+npm run dev
 ```
 
----
+Open http://localhost:3000. The username field defaults to `Sandesh_kale`;
+change it to pull anyone's public games.
 
-## 🔒 Security Considerations
+## 4. Deploy (optional)
 
-- **PGN Input Sanitization** — All moves are validated through `chess.js` before state acceptance
-- **No Token Storage** — Chess.com API is public/read-only; no auth tokens needed
-- **CSP Compliance** — Stockfish loads from CDN by default. For strict CSP, vendor the `.js` and `.wasm` files to `public/stockfish/`
-- **XSS Prevention** — PGN content is never rendered as HTML; all display uses text nodes
+Push to GitHub, import into Vercel. Add `GROQ_API_KEY` under
+Project Settings → Environment Variables on Vercel (same value as your
+`.env.local`). No other config needed — the Stockfish files in
+`public/engine/` are static assets and deploy as-is.
 
----
+## How it works
 
-## 🛣️ Roadmap
+- **`/api/chesscom`** — server route. Given a `username` and a `from`/`to`
+  date range, it works out which monthly chess.com archives overlap that
+  range, fetches them, and filters to games whose end time falls in range.
+  Chess.com's public API needs no auth.
+- **`src/lib/pgn.ts`** — parses each game's PGN with chess.js into a move
+  list + a FEN after every move, and pulls the opening name out of the PGN
+  headers.
+- **`src/lib/engine.ts`** — a thin wrapper around Stockfish 18 (lite,
+  single-threaded WASM build, served from `/public/engine/`) that speaks UCI
+  over a Web Worker. One position at a time, queued.
+- **`src/lib/analyzeGame.ts`** — feeds every position in the game to the
+  engine exactly once, then for each move compares "best achievable eval"
+  (before the move) to "actual eval" (after the move) to get a centipawn
+  loss, and buckets that into a classification. Also flags likely sacrifice
+  "Brilliant" moves with a lightweight material-loss heuristic — it's not a
+  full SEE-based detector, just a reasonable approximation.
+- **`/api/groq`** — takes the flagged moments (blunders/mistakes/
+  inaccuracies/brilliancies) from an analyzed game and asks Groq's
+  `llama-3.3-70b-versatile` (free tier: 30 req/min, 1,000 req/day — plenty
+  for personal use) to explain them like a coach would.
 
-- [ ] Cloud analysis with persistent server-side Stockfish
-- [ ] Lichess game import (OAuth integration)
-- [ ] Interactive tactics trainer from blunders
-- [ ] Time-usage analysis (if PGN contains clock annotations)
-- [ ] Shareable analysis links (encode FEN + evals in URL)
+## Tuning
 
----
+- **Depth**: the depth selector in the UI (12/16/20/24) trades analysis
+  time for accuracy. The lite-single Stockfish build is single-threaded, so
+  depth 20+ on a long game can take a while — that's expected, it's genuinely
+  running the engine, not calling a rate-limited API.
+- **Opening book cutoff**: the first 10 half-moves are auto-labeled "Book"
+  unless they lose real material (see `BOOK_PLY_CUTOFF` in
+  `src/lib/classify.ts`). Adjust if you want theory recognized deeper or
+  shallower into the game.
+- **Multi-threaded engine**: `public/engine/` currently ships the
+  single-threaded build so it works with zero server config. If you want
+  more speed later, swap in the multi-threaded `stockfish-18.wasm` build
+  from the `stockfish` npm package and uncomment the
+  `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy` headers in
+  `next.config.js` — that build requires them.
 
-## 📄 License
+## Known limitations
 
-MIT License — feel free to fork, modify, and deploy.
-
----
-
-Built with ♟️ by a 10-year BFSI full-stack engineer who believes chess analysis should be as rigorous as production code.
+- The "Brilliant" tag is a heuristic (best move + apparent material sac +
+  still clearly favorable), not a rigorous sacrifice detector — treat it as
+  a hint to look closer, not gospel.
+- Chess960 and other variants aren't handled; `parseChessComGame` silently
+  skips games chess.js can't parse.
+- Accuracy % uses the standard ACPL→accuracy logistic curve (same formula
+  Lichess uses), which is an approximation, not chess.com's exact
+  proprietary formula.
