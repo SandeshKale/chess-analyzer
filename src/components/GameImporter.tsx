@@ -33,8 +33,16 @@ export function GameImporter() {
     try {
       const list = await getPlayerArchives(username.trim());
       setArchives(list);
+      if (list.length === 0) {
+        setError('No game archives found for this user');
+      }
     } catch (err) {
-      setError((err as Error).message);
+      const msg = (err as Error).message;
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        setError('Network error. Chess.com API may be blocked by CORS. Try pasting a PGN instead.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,8 +53,16 @@ export function GameImporter() {
     try {
       const list = await getMonthlyGames(archiveUrl);
       setGames(list);
+      if (list.length === 0) {
+        setError('No games found in this archive');
+      }
     } catch (err) {
-      setError((err as Error).message);
+      const msg = (err as Error).message;
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        setError('Network error fetching games. Try a different month or paste a PGN.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -189,7 +205,19 @@ export function GameImporter() {
         </div>
       )}
 
-      {error && <div style={{ color: '#e34f4f', marginTop: '12px', fontSize: '14px' }}>{error}</div>}
+      {error && (
+        <div style={{ 
+          color: '#e34f4f', 
+          marginTop: '12px', 
+          fontSize: '14px',
+          padding: '10px 14px',
+          background: '#e34f4f11',
+          borderRadius: '6px',
+          border: '1px solid #e34f4f33',
+        }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,9 @@
  * - GET /pub/player/{username}/games/archives
  * - GET /pub/player/{username}/games/{YYYY}/{MM}
  * 
- * Chess.com requires a descriptive User-Agent header.
+ * Note: Browsers cannot set custom User-Agent headers via fetch().
+ * Chess.com accepts the default browser UA. For server-side use,
+ * add a descriptive User-Agent header.
  * Reference: https://www.chess.com/news/view/published-data-api
  */
 
@@ -37,16 +39,8 @@ export interface MonthlyGamesResponse {
 
 const BASE_URL = 'https://api.chess.com/pub/player';
 
-function getHeaders(): HeadersInit {
-  return {
-    'Accept': 'application/json',
-    // Chess.com strongly recommends a descriptive User-Agent
-    'User-Agent': 'ChessAnalyzer/1.0 (contact: chess-analyzer-app)',
-  };
-}
-
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: getHeaders() });
+  const res = await fetch(url);
   if (!res.ok) {
     if (res.status === 404) throw new Error('Player not found');
     if (res.status === 429) throw new Error('Rate limited by Chess.com. Please wait a moment.');
