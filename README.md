@@ -73,12 +73,16 @@ Project Settings → Environment Variables on Vercel (same value as your
 
 ## What's new: 3D pieces, move arrows, per-move coaching
 
-- **3D Staunton pieces** (`src/lib/staunton3dPieces.tsx`) reuse react-chessboard's
-  own bundled piece silhouettes (imported live from the `react-chessboard`
-  package, not copied out) and shade them with a radial gradient plus a cast
-  drop-shadow — ivory→brass for white, graphite→onyx for black — so a flat
-  2D piece reads as a glossy, dimensional Staunton piece without needing a
-  full WebGL/Three.js board.
+- **Fixed a real date-range bug**: "day" mode never actually computed an
+  end-of-day boundary, and `new Date("YYYY-MM-DD")` parses as UTC midnight —
+  both together meant results could drift or barely respond to the date
+  picker. `src/lib/dateRange.ts` now parses the input as a local calendar
+  date and computes exact day/week/month boundaries in your own timezone.
+- **3D Staunton pieces** (`src/lib/staunton3dPieces.tsx`) are an original,
+  hand-built chunky/rounded piece set (wood gradient for white, onyx for
+  black, plus a cast shadow) — not a copy of any vendor's specific artwork,
+  just the same general glossy 3D-look genre, built from scratch as simple
+  SVG primitives so you can freely restyle it.
 - **Click a move → see its path**: `AnalysisBoard` now derives the actual
   from/to squares of whatever move is selected (via chess.js) and draws an
   arrow colored by that move's classification, plus highlights both squares.

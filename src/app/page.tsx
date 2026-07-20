@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
+import { format } from "date-fns";
+import { computeDateRange } from "@/lib/dateRange";
 import { BottomTabBar, type TabKey } from "@/components/BottomTabBar";
 import { HomeTab } from "@/components/tabs/HomeTab";
 import { GamesTab } from "@/components/tabs/GamesTab";
@@ -52,16 +53,7 @@ export default function Home() {
     setAnalysis(null);
     setCommentary(null);
 
-    const date = new Date(dateStr);
-    let from = date;
-    let to = date;
-    if (mode === "week") {
-      from = startOfWeek(date, { weekStartsOn: 1 });
-      to = endOfWeek(date, { weekStartsOn: 1 });
-    } else if (mode === "month") {
-      from = startOfMonth(date);
-      to = endOfMonth(date);
-    }
+    const { from, to } = computeDateRange(mode, dateStr);
 
     try {
       const params = new URLSearchParams({

@@ -36,8 +36,7 @@ export async function GET(req: NextRequest) {
   }
 
   const fromTs = from.getTime() / 1000;
-  // include the whole "to" day
-  const toTs = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59).getTime() / 1000;
+  const toTs = to.getTime() / 1000;
 
   const months = monthsBetween(from, to);
 
