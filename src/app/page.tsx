@@ -34,6 +34,10 @@ export default function Home() {
   const [commentaryLoading, setCommentaryLoading] = useState(false);
   const [commentaryError, setCommentaryError] = useState<string | null>(null);
 
+  const [moveNotes, setMoveNotes] = useState<Record<number, string>>({});
+  const [moveNoteLoadingIndex, setMoveNoteLoadingIndex] = useState<number | null>(null);
+  const [moveNoteError, setMoveNoteError] = useState<string | null>(null);
+
   const engineRef = useRef<StockfishEngine | null>(null);
   useEffect(() => {
     engineRef.current = new StockfishEngine();
@@ -87,6 +91,8 @@ export default function Home() {
       setActiveIndex(null);
       setCommentary(null);
       setCommentaryError(null);
+      setMoveNotes({});
+      setMoveNoteError(null);
       setProgress({ done: 0, total: game.moveSans.length + 1 });
       try {
         const result = await analyzeGame(game, engineRef.current, {
@@ -143,6 +149,42 @@ export default function Home() {
     }
   }, [selectedGame, analysis, username]);
 
+  const explainMove = useCallback(
+    async (index: number) => {
+      if (!analysis || !selectedGame) return;
+      if (moveNotes[index]) return; // already fetched, nothing to do
+      setMoveNoteLoadingIndex(index);
+      setMoveNoteError(null);
+      try {
+        const m = analysis.moves[index];
+        const res = await fetch("/api/groq/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            myUsername: username,
+            playedAs: selectedGame.playedAs,
+            opponent: selectedGame.opponent,
+            moveNumber: m.moveNumber,
+            color: m.color,
+            san: m.san,
+            classification: m.classification,
+            cpLoss: m.cpLoss,
+            bestMoveSan: m.bestMoveSan,
+            pvSan: m.evalBefore.pvSan,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "failed to get move commentary");
+        setMoveNotes((prev) => ({ ...prev, [index]: data.commentary }));
+      } catch (err: any) {
+        setMoveNoteError(err.message || "Something went wrong explaining that move.");
+      } finally {
+        setMoveNoteLoadingIndex(null);
+      }
+    },
+    [analysis, selectedGame, username, moveNotes]
+  );
+
   const activeMove = analysis && activeIndex !== null ? analysis.moves[activeIndex] : null;
   const boardFen = activeMove
     ? activeMove.fenAfter
@@ -197,6 +239,10 @@ export default function Home() {
             commentaryError={commentaryError}
             onGenerateCommentary={generateCommentary}
             onGoToGames={() => setActiveTab("games")}
+            moveNotes={moveNotes}
+            moveNoteLoadingIndex={moveNoteLoadingIndex}
+            moveNoteError={moveNoteError}
+            onExplainMove={explainMove}
           />
         )}
       </div>

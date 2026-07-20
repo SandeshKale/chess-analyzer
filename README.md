@@ -71,6 +71,24 @@ Project Settings → Environment Variables on Vercel (same value as your
   `llama-3.3-70b-versatile` (free tier: 30 req/min, 1,000 req/day — plenty
   for personal use) to explain them like a coach would.
 
+## What's new: 3D pieces, move arrows, per-move coaching
+
+- **3D Staunton pieces** (`src/lib/staunton3dPieces.tsx`) reuse react-chessboard's
+  own bundled piece silhouettes (imported live from the `react-chessboard`
+  package, not copied out) and shade them with a radial gradient plus a cast
+  drop-shadow — ivory→brass for white, graphite→onyx for black — so a flat
+  2D piece reads as a glossy, dimensional Staunton piece without needing a
+  full WebGL/Three.js board.
+- **Click a move → see its path**: `AnalysisBoard` now derives the actual
+  from/to squares of whatever move is selected (via chess.js) and draws an
+  arrow colored by that move's classification, plus highlights both squares.
+  If the move wasn't the engine's top choice, a second brass arrow shows
+  what it preferred instead.
+- **Per-move coaching** (`/api/groq/move`): click "Explain this move" under
+  the board to get a 2-4 sentence explanation of that one move specifically,
+  not just the whole-game summary. Answers are cached per move so revisiting
+  one doesn't re-spend a Groq call.
+
 ## Tuning
 
 - **Depth**: the depth selector in the UI (12/16/20/24) trades analysis

@@ -5,6 +5,7 @@ import { EvalGraph } from "@/components/EvalGraph";
 import { MoveList } from "@/components/MoveList";
 import { SummaryBar } from "@/components/SummaryBar";
 import { CommentaryPanel } from "@/components/CommentaryPanel";
+import { MoveCoachPanel } from "@/components/MoveCoachPanel";
 import type { AnnotatedMove, GameAnalysis, ParsedGame } from "@/lib/types";
 
 export function AnalysisTab({
@@ -25,6 +26,10 @@ export function AnalysisTab({
   commentaryError,
   onGenerateCommentary,
   onGoToGames,
+  moveNotes,
+  moveNoteLoadingIndex,
+  moveNoteError,
+  onExplainMove,
 }: {
   username: string;
   selectedGame: ParsedGame | null;
@@ -43,6 +48,10 @@ export function AnalysisTab({
   commentaryError: string | null;
   onGenerateCommentary: () => void;
   onGoToGames: () => void;
+  moveNotes: Record<number, string>;
+  moveNoteLoadingIndex: number | null;
+  moveNoteError: string | null;
+  onExplainMove: (i: number) => void;
 }) {
   if (!selectedGame) {
     return (
@@ -99,6 +108,16 @@ export function AnalysisTab({
       )}
 
       <AnalysisBoard fen={boardFen} orientation={selectedGame.playedAs} move={activeMove} />
+
+      {analysis && (
+        <MoveCoachPanel
+          move={activeMove}
+          note={activeIndex !== null ? moveNotes[activeIndex] : undefined}
+          loading={activeIndex !== null && moveNoteLoadingIndex === activeIndex}
+          error={moveNoteError}
+          onExplain={() => activeIndex !== null && onExplainMove(activeIndex)}
+        />
+      )}
 
       {analysis && (
         <>
